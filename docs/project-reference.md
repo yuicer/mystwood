@@ -1,18 +1,47 @@
-# Mystwood 小程序工程参考
+# Mystwood 小程序项目参考
 
-> 更新日期：2026-05-16  
-> 用途：给后续开发、排错和代码生成提供唯一工程事实来源。产品目标和远期规划见 `docs/mvp-prd.md`。  
+> 更新日期：2026-05-26  
+> 用途：作为产品目标、工程实现、数据模型、接口和后续规划的唯一项目文档。  
 > 当前口径：原生微信小程序 + 微信云函数；没有独立 HTTP 后端，业务调用统一走 `wx.cloud.callFunction`。
 
-## 当前状态
+## 1. 产品边界
 
-当前 MVP 已保留：空间创建、邀请同意、任务创建、任务完成、回忆归档、解绑空间。
+Mystwood 是一个双人亲密空间小程序。MVP 聚焦“创建空间 -> 邀请对方 -> 双方执行任务 -> 沉淀回忆 -> 可解绑”的闭环。
 
-你已删除的能力：`category-service`、`theme-service`、类/Category 页面、`utils/theme.js`。主题逻辑现在收敛在 `space-service`，首页直接使用 `state.space.theme`。
+已确认规则：
+
+1. 一个用户只能拥有或加入 1 个空间。
+2. 空间创建后为 `pending`，对方接受邀请后变为 `active`。
+3. 解绑后历史数据不保留。
+4. 图片凭证可选，当前仍是图片地址。
+5. 定位默认尝试获取，也可不填。
+6. 任务完成不需要另一方确认，但另一方可查看。
+7. 亲密度是隐藏分，通过空间主题表现，不直接展示数值。
+8. 后续需要订阅消息提醒能力。
+
+当前已删除/暂缓：
+
+1. 类/Category 页面与规则系统。
+2. 独立 `category-service`。
+3. 独立 `theme-service`。
+4. `utils/theme.js`。
+
+## 2. 当前状态
+
+已实现：
+
+1. 空间创建。
+2. 邀请码和微信分享邀请。
+3. 接收方按 `inviteToken` 接受邀请。
+4. 发送方邀请页通过 `getInviteState` 轮询状态，空间变为 `active` 后自动跳转首页。
+5. 任务创建和完成。
+6. 回忆归档，由 `completed` / `overdue` 任务派生。
+7. 解绑空间。
+8. 主题逻辑收敛在 `space-service`，首页直接使用 `state.space.theme`。
 
 当前云环境 ID：`cloud1-d1gawczd613a07bab`，配置在 `miniprogram/config.js`。
 
-## 目录
+## 3. 目录
 
 ```text
 miniprogram/
@@ -21,7 +50,7 @@ miniprogram/
   utils/api.js                   # 小程序端云函数调用封装
   pages/index/index              # 首页/空间主页
   pages/space/create             # 创建空间
-  pages/space/invite             # 邀请/模拟同意
+  pages/space/invite             # 邀请、分享、接受邀请
   pages/task/create              # 创建任务
   pages/memory/list              # 回忆归档
   pages/me/settings              # 设置/解绑
@@ -29,8 +58,7 @@ cloudfunctions/
   space-service                  # 空间、邀请、状态聚合、主题
   task-service                   # 任务创建、完成
 docs/
-  mvp-prd.md                     # 产品目标和规划
-  project-reference.md           # 工程事实来源
+  project-reference.md           # 唯一项目文档
 ```
 
 `miniprogram/app.json` 当前注册页面：
@@ -46,20 +74,20 @@ docs/
 ]
 ```
 
-## 运行部署
+## 4. 运行部署
 
-1. 微信开发者工具导入仓库根目录 `/Users/yuicer/code/mystwood`。
+1. 微信开发者工具导入仓库根目录 `/Users/yuicer/code/Mystwood`。
 2. 确认云开发环境为 `cloud1-d1gawczd613a07bab`。
 3. 上传并部署 `cloudfunctions/space-service` 和 `cloudfunctions/task-service`。
 4. 确认云数据库有 `spaces`、`tasks` 集合。
 
-## 用户流程与页面关系
+## 5. 用户流程
 
 ```mermaid
 flowchart TD
   Index["index 首页"]
   CreateSpace["space/create 创建空间"]
-  Invite["space/invite 邀请同意"]
+  Invite["space/invite 邀请页"]
   CreateTask["task/create 创建任务"]
   Memory["memory/list 回忆归档"]
   Settings["me/settings 设置解绑"]
@@ -67,7 +95,9 @@ flowchart TD
   Index -->|无空间| CreateSpace
   CreateSpace -->|createSpace 成功| Invite
   Index -->|pending 空间| Invite
+  Invite -->|发送邀请| Invite
   Invite -->|acceptInvite 成功| Index
+  Invite -->|轮询到 active| Index
   Invite -->|无空间| CreateSpace
   Index -->|active 空间| CreateTask
   Index -->|active 空间| Memory
@@ -80,12 +110,12 @@ flowchart TD
 | --- | --- | --- | --- |
 | `pages/index/index` | `api.getState()` | 展示空间、任务、完成任务 | `wx.navigateTo`、`wx.showToast` |
 | `pages/space/create` | 表单 | 创建空间 | `wx.redirectTo` |
-| `pages/space/invite` | `api.getState()`、`api.getInvite(inviteToken)` | 复制邀请码、微信分享邀请、接受邀请 | `wx.setClipboardData`、`wx.showShareMenu`、`open-type="share"`、`wx.redirectTo` |
+| `pages/space/invite` | `api.getState()`、`api.getInvite(inviteToken)`、`api.getInviteState(inviteToken)` | 复制邀请码、微信分享邀请、接受邀请、轮询发送方状态 | `wx.setClipboardData`、`wx.showShareMenu`、`open-type="share"`、`wx.redirectTo` |
 | `pages/task/create` | 表单 | 创建任务 | `wx.navigateTo`、`wx.showToast` |
 | `pages/memory/list` | `api.getState()` | 展示 completed/overdue 任务 | `wx.showToast` |
 | `pages/me/settings` | 无持久设置 | 解绑空间 | `wx.showModal`、`wx.reLaunch` |
 
-## 业务 API
+## 6. 业务 API
 
 页面通过 `miniprogram/utils/api.js` 调云函数，不直接散落调用 `wx.cloud.callFunction`。
 
@@ -94,12 +124,13 @@ flowchart TD
 | `getState()` | `space-service/getState` | 无 | `{ space, tasks, memories }` |
 | `createSpace(name)` | `space-service/createSpace` | `name` | 新建空间 |
 | `getInvite(inviteToken)` | `space-service/getInvite` | `inviteToken` | 邀请空间公开信息 |
+| `getInviteState(inviteToken)` | `space-service/getInviteState` | `inviteToken` | `{ spaceId, name, inviteToken, status }` |
 | `acceptInvite(inviteToken)` | `space-service/acceptInvite` | `inviteToken` | `true` |
 | `dissolveSpace()` | `space-service/dissolveSpace` | 无 | `true` |
 | `createTask(payload)` | `task-service/createTask` | 任务表单 | 新建任务 |
 | `completeTask(id)` | `task-service/completeTask` | 任务 ID | `true` |
 
-云函数统一返回：
+云函数统一成功返回：
 
 ```js
 { code: 0, data: {} }
@@ -111,16 +142,17 @@ flowchart TD
 { code: 400, message: "错误信息" }
 ```
 
-## 云函数
+## 7. 云函数
 
 ### `space-service`
 
 | action | 当前逻辑 | 主要风险 |
 | --- | --- | --- |
 | `getState` | 按 `members` 查询当前空间，查空间任务，派生回忆 | 查询未分页 |
-| `createSpace` | 创建 pending 空间、邀请码、默认分数和主题 | 未限制一个用户只能有一个空间 |
-| `getInvite` | 按 `inviteToken` 查询 pending 空间，返回公开邀请信息 | 不暴露成员列表 |
-| `acceptInvite` | 按 `inviteToken` 查询 pending 空间，加入当前用户并激活 | 当前限制用户已有空间时不能再接受 |
+| `createSpace` | 创建 `pending` 空间、邀请码、默认分数和主题 | 未限制一个用户只能有一个空间 |
+| `getInvite` | 按 `inviteToken` 查询 `pending` 空间，返回公开邀请信息 | 不暴露成员列表 |
+| `getInviteState` | 按 `inviteToken` 查询空间，返回邀请状态 | 当前仅供发送方轮询 |
+| `acceptInvite` | 按 `inviteToken` 查询 `pending` 空间，加入当前用户并把空间置为 `active` | 当前限制用户已有空间时不能再接受 |
 | `dissolveSpace` | 删除当前空间 | 未级联删除任务 |
 
 主题阈值：
@@ -135,10 +167,10 @@ flowchart TD
 
 | action | 当前逻辑 | 主要风险 |
 | --- | --- | --- |
-| `createTask` | 校验标题和空间后写入 todo 任务 | 未校验空间必须 active |
-| `completeTask` | 按任务 ID 更新为 completed | 未校验任务归属，未更新分数 |
+| `createTask` | 校验标题和空间后写入 `todo` 任务 | 未校验空间必须 `active` |
+| `completeTask` | 按任务 ID 更新为 `completed` | 未校验任务归属，未更新分数 |
 
-## 数据模型
+## 8. 数据模型
 
 ### `spaces`
 
@@ -147,7 +179,7 @@ flowchart TD
 | `_id` | 云数据库文档 ID |
 | `name` | 空间名称 |
 | `status` | `pending` / `active` |
-| `members` | 成员 OPENID 数组 |
+| `members` | 成员 OPENID 数组，当前产品限定 2 人 |
 | `inviteToken` | 邀请码 |
 | `score` | 隐藏亲密分 |
 | `theme` | 当前主题对象 |
@@ -168,7 +200,7 @@ flowchart TD
 | `createdAt` | 创建时间戳 |
 | `completedAt` | 完成时间戳 |
 
-## 微信 API 清单
+## 9. 微信 API 清单
 
 | API | 用途 | 注意 |
 | --- | --- | --- |
@@ -183,9 +215,28 @@ flowchart TD
 | `wx.showModal` | 危险操作确认 | 解绑确认 |
 | `wx.setClipboardData` | 复制邀请码 | 需要确保 token 存在 |
 
-后续建议接入：`onShareAppMessage` / `wx.showShareMenu` 做正式邀请，`wx.chooseMedia` + `wx.cloud.uploadFile` 做图片凭证，`wx.getLocation` / `wx.chooseLocation` 做地点，`wx.requestSubscribeMessage` 做提醒。
+后续建议接入：`wx.chooseMedia` + `wx.cloud.uploadFile` 做图片凭证，`wx.getLocation` / `wx.chooseLocation` 做地点，`wx.requestSubscribeMessage` 做提醒。
 
-## 当前优先级
+## 10. 实时同步策略
+
+当前已落地的最小方案：
+
+1. 服务端以 `spaces.status` 作为邀请是否完成的真相源。
+2. `createSpace` 创建 `pending` 空间。
+3. `acceptInvite` 成功后把空间状态更新为 `active`。
+4. 发送方邀请页调用 `getInviteState(inviteToken)`，按 2s、3s、5s、8s 退避轮询。
+5. 轮询到 `status === "active"` 后提示“对方已确认加入”，并自动跳转首页。
+6. 页面隐藏或卸载时停止轮询。
+
+后续如果需要更实时的体验，可按“状态机 + 实时事件 + 轮询兜底 + 离线订阅消息”演进：
+
+1. 实时事件：优先考虑云数据库实时监听或云托管 WebSocket。
+2. 事件类型：`INVITE_CONFIRMED`、`TASK_CREATED`、`TASK_COMPLETED`、`SPACE_DISSOLVED`。
+3. 可靠性：落库先于广播，客户端按 `eventId` 去重。
+4. 离线补偿：使用订阅消息提醒发送方或对方查看变化。
+5. 验收指标：发送方在接收方确认后 P95 感知时延小于 3 秒。
+
+## 11. 优先级
 
 P0：
 
@@ -197,16 +248,18 @@ P1：
 1. `createSpace`：限制一个用户只能有一个空间。
 2. `completeTask`：校验任务属于当前用户空间。
 3. `dissolveSpace`：级联删除当前空间下任务。
-4. `createTask`：校验空间必须 active。
+4. `createTask`：校验空间必须 `active`。
+5. `acceptInvite`：考虑幂等处理重复点击和弱网重试。
 
 P2：
 
 1. 图片从手填 URL 改为云存储。
 2. 地点从手填文本改为定位/地图选择。
 3. 接入订阅消息。
-4. 如产品仍需要，再恢复/重设类与规则系统。
+4. 任务创建、完成和解绑接入实时通知。
+5. 如产品仍需要，再恢复/重设类与规则系统。
 
-## 开发约定
+## 12. 开发约定
 
 1. 新业务方法先加 `miniprogram/utils/api.js`。
 2. 云函数写操作必须用 `cloud.getWXContext().OPENID` 做权限校验。

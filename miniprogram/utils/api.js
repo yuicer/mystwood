@@ -33,6 +33,9 @@ module.exports = {
   getInvite(inviteToken) {
     return callFunction("space-service", { action: "getInvite", inviteToken });
   },
+  getInviteState(inviteToken) {
+    return callFunction("space-service", { action: "getInviteState", inviteToken });
+  },
   acceptInvite(inviteToken) {
     return callFunction("space-service", { action: "acceptInvite", inviteToken });
   },

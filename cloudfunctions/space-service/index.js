@@ -2,6 +2,11 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 
+const SPACE_STATUS = {
+  PENDING: 'pending',
+  ACTIVE: 'active'
+}
+
 const THEME_PRESETS = [
   {
     maxScore: 39,
@@ -40,6 +45,16 @@ function getInviteToken(event) {
   return typeof rawToken === 'string' ? rawToken.trim() : ''
 }
 
+function formatInviteState(payload) {
+  if (!payload) return null
+  return {
+    spaceId: payload._id,
+    name: payload.name,
+    inviteToken: payload.inviteToken,
+    status: payload.status
+  }
+}
+
 exports.main = async (event, context) => {
   const wxContext = cloud.getWXContext()
   const { action, name } = event
@@ -62,7 +77,7 @@ exports.main = async (event, context) => {
         const score = 50
         const doc = {
           name: name || '我们的小宇宙',
-          status: 'pending',
+          status: SPACE_STATUS.PENDING,
           members: [wxContext.OPENID],
           inviteToken: Math.random().toString(36).slice(2, 10),
           score,
@@ -75,7 +90,7 @@ exports.main = async (event, context) => {
       case 'getInvite': {
         if (!inviteToken) return { code: 400, message: '邀请码无效' }
 
-        const inviteRes = await db.collection('spaces').where({ inviteToken, status: 'pending' }).limit(1).get()
+        const inviteRes = await db.collection('spaces').where({ inviteToken, status: SPACE_STATUS.PENDING }).limit(1).get()
         const row = inviteRes.data[0]
         if (!row) return { code: 404, message: '邀请不存在或已失效' }
 
@@ -87,13 +102,25 @@ exports.main = async (event, context) => {
           }
         }
       }
+      case 'getInviteState': {
+        if (!inviteToken) return { code: 400, message: '邀请码无效' }
+
+        const inviteRes = await db.collection('spaces').where({ inviteToken }).limit(1).get()
+        const row = inviteRes.data[0]
+        if (!row) return { code: 404, message: '邀请不存在或已失效' }
+
+        return {
+          code: 0,
+          data: formatInviteState(row)
+        }
+      }
       case 'acceptInvite': {
         if (!inviteToken) return { code: 400, message: '邀请码无效' }
 
         const currentSpaceRes = await db.collection('spaces').where({ members: wxContext.OPENID }).limit(1).get()
         if (currentSpaceRes.data[0]) return { code: 400, message: '你已加入一个空间' }
 
-        const pending = await db.collection('spaces').where({ inviteToken, status: 'pending' }).limit(1).get()
+        const pending = await db.collection('spaces').where({ inviteToken, status: SPACE_STATUS.PENDING }).limit(1).get()
         const row = pending.data[0]
         if (!row) return { code: 404, message: '邀请不存在或已失效' }
 
@@ -102,7 +129,7 @@ exports.main = async (event, context) => {
         }
 
         const members = Array.from(new Set([...(row.members || []), wxContext.OPENID]))
-        await db.collection('spaces').doc(row._id).update({ data: { status: 'active', members } })
+        await db.collection('spaces').doc(row._id).update({ data: { status: SPACE_STATUS.ACTIVE, members } })
         return { code: 0, data: true }
       }
       case 'dissolveSpace': {

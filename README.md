@@ -17,11 +17,10 @@
 
 ## 微信开发者工具工作流
 
-1. 打开微信开发者工具并导入项目根目录 `/Users/yuicer/code/mystwood`。
+1. 打开微信开发者工具并导入项目根目录 `/Users/yuicer/code/Mystwood`。
 2. 工具会根据根目录的 `project.config.json` 自动指向 `miniprogram/`。
 3. 在微信开发者工具中完成预览、真机调试、云函数上传和代码上传。
 
 ## 项目参考文档
 
-- 工程事实来源：`docs/project-reference.md`
-- 产品目标与规划：`docs/mvp-prd.md`
+- 项目唯一参考文档：`docs/project-reference.md`
