@@ -1,23 +1,5 @@
 <view style="padding:24rpx">
   <view class="card">
-    <view style="font-size:30rpx;font-weight:600">通知设置（MVP 占位）</view>
-    <view style="margin-top:14rpx;border-top:1px solid #ececeb;">
-      <view style="display:flex;align-items:center;justify-content:space-between;padding:14rpx 0;border-bottom:1px solid #f2f2f0;">
-        <text>类同意请求提醒</text>
-        <switch checked color="#2f2f2f" />
-      </view>
-      <view style="display:flex;align-items:center;justify-content:space-between;padding:14rpx 0;border-bottom:1px solid #f2f2f0;">
-        <text>任务即将逾期提醒</text>
-        <switch checked color="#2f2f2f" />
-      </view>
-      <view style="display:flex;align-items:center;justify-content:space-between;padding:14rpx 0;">
-        <text>自动扣分结果提醒</text>
-        <switch checked color="#2f2f2f" />
-      </view>
-    </view>
-  </view>
-
-  <view class="card">
     <view style="font-size:30rpx;font-weight:600">关系解绑</view>
     <view class="hint" style="margin:12rpx 0">解绑后数据不保留，不可恢复。</view>
     <button class="btn-danger" bindtap="dissolve">解绑并清空数据</button>

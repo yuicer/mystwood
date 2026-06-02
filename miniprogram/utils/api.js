@@ -33,14 +33,21 @@ module.exports = {
   getInvite(inviteToken) {
     return callFunction("space-service", { action: "getInvite", inviteToken });
   },
-  getInviteState(inviteToken) {
-    return callFunction("space-service", { action: "getInviteState", inviteToken });
-  },
   acceptInvite(inviteToken) {
     return callFunction("space-service", { action: "acceptInvite", inviteToken });
   },
   dissolveSpace() {
     return callFunction("space-service", { action: "dissolveSpace" });
+  },
+  waitSyncEvents(options) {
+    const opts = options || {};
+    return callFunction("space-service", {
+      action: "waitSyncEvents",
+      cursor: opts.cursor,
+      timeoutMs: opts.timeoutMs,
+      intervalMs: opts.intervalMs,
+      limit: opts.limit
+    });
   },
   createTask(payload) {
     return callFunction("task-service", { action: "createTask", payload });

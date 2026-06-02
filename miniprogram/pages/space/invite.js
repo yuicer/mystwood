@@ -1,6 +1,8 @@
 "use strict";
 
 const api = require("../../utils/api.js");
+const config = require("../../config.js");
+const sync = require("../../utils/sync.js");
 
 const SPACE_STATUS = {
   PENDING: "pending",
@@ -12,12 +14,11 @@ Page({
     space: null,
     invite: null,
     inviteToken: "",
-    inviteState: null,
-    isPolling: false
+    inviteState: null
   },
 
-  pollTimer: null,
-  pollCount: 0,
+  syncClient: null,
+  syncErrorShown: false,
 
   onLoad(options) {
     const rawInviteToken = options && (options.inviteToken || options.token || options.scene);
@@ -35,78 +36,103 @@ Page({
   async onShow() {
     try {
       if (this.data.inviteToken) {
-        const invite = await api.getInvite(this.data.inviteToken);
-        this.setData({ space: null, invite, inviteState: null });
-        this.stopInvitePolling();
+        await this.loadInviteTokenEntry();
         return;
       }
 
       const state = await api.getState();
       if (state.space) {
         this.setData({ space: state.space, invite: null });
-        if (state.space.status === SPACE_STATUS.PENDING && state.space.inviteToken) {
-          this.startInvitePolling();
-        } else {
-          this.stopInvitePolling();
-        }
+        this.startInviteClient(state.syncCursor);
         return;
       }
 
-      this.stopInvitePolling();
+      this.stopInviteClient();
       this.setData({ space: null, invite: null, inviteState: null });
     } catch (error) {
       wx.showToast({ title: error.message || "加载失败", icon: "none" });
     }
   },
 
-  onHide() {
-    this.stopInvitePolling();
-  },
+  async loadInviteTokenEntry() {
+    const state = await api.getState();
+    const space = state.space;
+    const isCurrentSpaceInvite = space && space.inviteToken === this.data.inviteToken;
 
-  onUnload() {
-    this.stopInvitePolling();
-  },
+    if (isCurrentSpaceInvite) {
+      this.setData({
+        space,
+        invite: null,
+        inviteState: {
+          spaceId: space._id,
+          name: space.name,
+          inviteToken: space.inviteToken,
+          status: space.status
+        }
+      });
 
-  startInvitePolling() {
-    this.stopInvitePolling();
-    this.pollCount = 0;
-    this.setData({ isPolling: true });
-    this.pollInviteState();
-  },
-
-  stopInvitePolling() {
-    if (this.pollTimer) {
-      clearTimeout(this.pollTimer);
-      this.pollTimer = null;
-    }
-    if (this.data.isPolling) {
-      this.setData({ isPolling: false });
-    }
-  },
-
-  getNextPollDelay() {
-    const delays = [2000, 3000, 5000, 8000];
-    return delays[Math.min(this.pollCount, delays.length - 1)];
-  },
-
-  async pollInviteState() {
-    if (!this.data.space || !this.data.space.inviteToken) return;
-    try {
-      const inviteState = await api.getInviteState(this.data.space.inviteToken);
-      this.setData({ inviteState });
-      if (inviteState && inviteState.status === SPACE_STATUS.ACTIVE) {
-        this.stopInvitePolling();
+      if (space.status === SPACE_STATUS.ACTIVE) {
+        this.stopInviteClient();
         wx.showToast({ title: "对方已确认加入", icon: "success" });
         setTimeout(() => wx.redirectTo({ url: "/pages/index/index" }), 400);
         return;
       }
-    } catch (error) {
-      // 轮询阶段静默失败，交由下一轮重试
+
+      this.startInviteClient(state.syncCursor);
+      return;
     }
 
-    this.pollCount += 1;
-    const delay = this.getNextPollDelay();
-    this.pollTimer = setTimeout(() => this.pollInviteState(), delay);
+    const invite = await api.getInvite(this.data.inviteToken);
+    this.setData({ space: null, invite, inviteState: null });
+    this.stopInviteClient();
+  },
+
+  onHide() {
+    this.stopInviteClient();
+  },
+
+  onUnload() {
+    this.stopInviteClient();
+  },
+
+  startInviteClient(cursor) {
+    this.stopInviteClient();
+    if (!this.data.space || !this.data.space.inviteToken || this.data.space.status !== SPACE_STATUS.PENDING) return;
+
+    const longPoll = config.syncLongPoll || {};
+    this.syncErrorShown = false;
+    this.syncClient = sync.createSimulatedSocketClient({
+      cursor,
+      timeoutMs: longPoll.timeoutMs,
+      intervalMs: longPoll.intervalMs,
+      emptyReconnectMinMs: longPoll.emptyReconnectMinMs,
+      emptyReconnectMaxMs: longPoll.emptyReconnectMaxMs,
+      onEvents: (events) => {
+        this.handleSyncEvents(events);
+      },
+      onError: (error) => {
+        if (this.syncErrorShown) return;
+        this.syncErrorShown = true;
+        wx.showToast({ title: error.message || "同步连接失败", icon: "none" });
+      }
+    });
+    this.syncClient.start();
+  },
+
+  stopInviteClient() {
+    if (this.syncClient) {
+      this.syncClient.close();
+      this.syncClient = null;
+    }
+  },
+
+  handleSyncEvents(events) {
+    const hasInviteConfirmed = (events || []).some(event => event && event.type === sync.EVENT_TYPES.INVITE_CONFIRMED);
+    if (!hasInviteConfirmed) return;
+
+    this.stopInviteClient();
+    wx.showToast({ title: "对方已确认加入", icon: "success" });
+    setTimeout(() => wx.redirectTo({ url: "/pages/index/index" }), 400);
   },
 
   copy() {

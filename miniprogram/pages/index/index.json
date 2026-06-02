@@ -1,4 +1,5 @@
 {
   "navigationBarTitleText": "指缝流砂",
+  "enablePullDownRefresh": true,
   "usingComponents": {}
 }
