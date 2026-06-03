@@ -1,37 +1,74 @@
-<view style="min-height:100vh;padding:24rpx;background:{{state.space && state.space.theme ? state.space.theme.bg : '#f7f6f3'}}">
-  <view wx:if="{{!state.space}}" class="card">
-    <view style="font-size:36rpx;font-weight:600">欢迎来到亲密空间</view>
-    <view class="hint" style="margin:12rpx 0 20rpx">先创建你们的双人空间，再邀请 TA 加入。</view>
-    <button class="btn-primary" data-url="/pages/space/create" bindtap="go">立即创建空间</button>
+<view class="index-page" style="background:{{state.space && state.space.theme ? state.space.theme.bg : '#f7f6f3'}}">
+  <view wx:if="{{isLoadingState && !stateReady}}" class="card loading-card">
+    <view class="loading-spinner"></view>
+    <view class="loading-title">loading...</view>
+  </view>
+
+  <view wx:elif="{{loadError && !stateReady}}" class="card load-error-card">
+    <view class="empty-title">暂时没有同步成功</view>
+    <view class="hint error-hint">{{loadError}}</view>
+    <button class="btn-primary" bindtap="retryLoadState">重新加载</button>
   </view>
 
   <block wx:else>
-    <view class="card">
-      <view style="font-size:34rpx;font-weight:600">{{state.space.name}}</view>
-      <view class="hint" style="margin-top:8rpx">状态：{{state.space.status === 'active' ? '已激活' : '待对方同意'}}</view>
-      <view class="hint" style="margin-top:8rpx">空间主题：{{state.space.theme.name}}</view>
+    <view wx:if="{{isLoadingState}}" class="sync-strip">
+      <view class="sync-dot"></view>
+      <view>同步最新状态</view>
     </view>
 
-    <view wx:if="{{state.space.status !== 'active'}}" class="card">
-      <view class="hint">还差一步，邀请 TA 同意后空间生效。</view>
-      <button class="btn-primary" style="margin-top:12rpx" data-url="/pages/space/invite" bindtap="go">去邀请</button>
+    <view wx:if="{{!state.space}}" class="card empty-card">
+      <view class="empty-title">欢迎来到亲密空间</view>
+      <view class="hint empty-copy">先创建你们的双人空间，再邀请 TA 加入。</view>
+      <button class="btn-primary" data-url="/pages/space/create" bindtap="go">立即创建空间</button>
     </view>
 
-    <view wx:else class="card">
-      <view style="font-size:30rpx;font-weight:600;margin-bottom:12rpx">快捷入口</view>
-      <button data-url="/pages/task/create" bindtap="go">创建任务</button>
-      <button data-url="/pages/memory/list" bindtap="go" style="margin-top:10rpx">回忆归档</button>
-      <button data-url="/pages/me/settings" bindtap="go" style="margin-top:10rpx">设置</button>
-    </view>
+    <block wx:else>
+      <view class="card space-card">
+        <view class="theme-header">
+          <view class="theme-title">{{state.space.name}}</view>
+          <button class="settings-icon" data-url="/pages/me/settings" bindtap="go">
+            <image class="settings-icon-image" src="/assets/icons/settings-gear.svg" mode="aspectFit"></image>
+          </button>
+        </view>
 
-    <view wx:if="{{state.space.status === 'active'}}" class="card">
-      <view style="font-size:30rpx;font-weight:600;margin-bottom:12rpx">待完成任务</view>
-      <view wx:if="{{todoTasks.length === 0}}" class="hint">暂无任务，去创建一个吧。</view>
-      <view wx:for="{{todoTasks}}" wx:key="_id" style="border-top:1px solid #eef2ff;padding:14rpx 0">
-        <view>{{item.title}}</view>
-        <view class="hint">截止：{{item.deadlineText || '未设置'}}</view>
-        <button size="mini" data-id="{{item._id}}" bindtap="finish">标记完成</button>
+        <view class="theme-meta">
+          <view class="space-summary">
+            <view class="happy-line">{{happyLine}}</view>
+          </view>
+          <button class="memory-link" data-url="/pages/memory/list" bindtap="go">
+            <view class="memory-title">回忆</view>
+            <view class="memory-count">{{state.memories.length}} 条</view>
+          </button>
+        </view>
       </view>
-    </view>
+
+      <view wx:if="{{state.space.status !== 'active'}}" class="card invite-card">
+        <view class="hint">还差一步，邀请 TA 同意后空间生效。</view>
+        <button class="btn-primary invite-button" data-url="/pages/space/invite" bindtap="go">去邀请</button>
+      </view>
+
+      <block wx:else>
+        <view class="entry-section">
+          <button class="entry-main" data-url="/pages/task/create" bindtap="go">
+            <view class="entry-plus">+</view>
+            <view class="entry-copy">
+              <view class="entry-title">一起去做！</view>
+              <view class="entry-desc">美好的，是我们一起度过的时光</view>
+            </view>
+          </button>
+        </view>
+
+        <view wx:if="{{todoTasks.length > 0}}" class="card task-card">
+          <view class="section-title task-title">待完成任务</view>
+          <view wx:for="{{todoTasks}}" wx:key="_id" class="list-item task-row">
+            <view class="task-info">
+              <view class="task-name">{{item.title}}</view>
+              <view class="hint">截止：{{item.deadlineText || '未设置'}}</view>
+            </view>
+            <button class="finish-button" size="mini" data-id="{{item._id}}" bindtap="finish">完成</button>
+          </view>
+        </view>
+      </block>
+    </block>
   </block>
 </view>

@@ -1,25 +1,78 @@
-"use strict";
+'use strict';
 
-const api = require("../../utils/api.js");
-const config = require("../../config.js");
-const sync = require("../../utils/sync.js");
+const api = require('../../utils/api.js');
+const config = require('../../config.js');
+const sync = require('../../utils/sync.js');
+
+const HAPPY_LINES = [
+  '小东西，真可爱，谁研究的呢',
+  '风很轻，云很淡，你很好',
+  '想见你，只想见你',
+  '想起你的时候总是会开心起来',
+  '不希望你有一点点的难过',
+  '都是轻松，明亮的！',
+];
+
+function createEmptyState() {
+  return {
+    space: null,
+    tasks: [],
+    memories: [],
+    syncCursor: 0,
+  };
+}
+
+function normalizeState(state) {
+  const source = state && typeof state === 'object' ? state : {};
+  const syncCursor = Number(source.syncCursor || 0);
+
+  return {
+    space: source.space || null,
+    tasks: Array.isArray(source.tasks) ? source.tasks : [],
+    memories: Array.isArray(source.memories) ? source.memories : [],
+    syncCursor: Number.isFinite(syncCursor) ? syncCursor : 0,
+  };
+}
+
+function getAppInstance() {
+  return typeof getApp === 'function' ? getApp() : null;
+}
+
+function getErrorMessage(error) {
+  return (error && (error.message || error.errMsg)) || '加载失败';
+}
+
+function pickHappyLine() {
+  return HAPPY_LINES[Math.floor(Math.random() * HAPPY_LINES.length)];
+}
 
 Page({
   data: {
-    state: {
-      space: null,
-      tasks: []
-    },
-    todoTasks: []
+    state: createEmptyState(),
+    todoTasks: [],
+    happyLine: pickHappyLine(),
+    isLoadingState: true,
+    stateReady: false,
+    loadError: '',
   },
 
   syncClient: null,
   handledSyncVersions: null,
   syncErrorShown: false,
+  serverStateLoaded: false,
+
+  onLoad() {
+    this.setData({ happyLine: pickHappyLine() });
+    this.applyCachedState();
+  },
 
   async onShow() {
-    const state = await this.loadState();
-    this.startSyncClient(state && state.syncCursor);
+    const state = await this.loadState({ usePreload: true });
+    if (state && state.space) {
+      this.startSyncClient(state.syncCursor);
+    } else {
+      this.stopSyncClient();
+    }
   },
 
   onHide() {
@@ -32,33 +85,101 @@ Page({
 
   async onPullDownRefresh() {
     try {
-      await this.loadState();
+      const state = await this.loadState({ usePreload: false });
+      if (state && state.space) {
+        this.startSyncClient(state.syncCursor);
+      } else {
+        this.stopSyncClient();
+      }
     } finally {
       if (wx.stopPullDownRefresh) wx.stopPullDownRefresh();
     }
   },
 
+  async applyCachedState() {
+    try {
+      const app = getAppInstance();
+      const cachedState =
+        app && app.getStateCache ? await app.getStateCache() : null;
+      if (this.serverStateLoaded) return;
+      if (!cachedState || !cachedState.space) return;
+
+      this.applyState(cachedState, { fromCache: true });
+    } catch (error) {
+      console.warn('[index] read cached state failed', error);
+    }
+  },
+
+  getStateRequest(options) {
+    const app = getAppInstance();
+    const preloadPromise =
+      app && app.globalData && app.globalData.statePreloadPromise;
+    if (!options || options.usePreload !== false) {
+      if (preloadPromise) return preloadPromise;
+    }
+    return api.getState();
+  },
+
+  applyState(nextState, options) {
+    const state = normalizeState(nextState);
+    const todoTasks = (state.tasks || [])
+      .filter((task) => task.status === 'todo')
+      .slice(0, 5)
+      .map((task) => ({
+        ...task,
+        deadlineText: task.deadline
+          ? new Date(task.deadline).toLocaleString()
+          : '未设置',
+      }));
+
+    this.setData({
+      state,
+      todoTasks,
+      stateReady: true,
+      isLoadingState: !!(options && options.fromCache),
+      loadError: '',
+    });
+  },
+
   async loadState(options) {
     const quiet = options && options.quiet;
 
-    try {
-      const state = await api.getState();
-      const todoTasks = (state.tasks || [])
-        .filter((task) => task.status === "todo")
-        .slice(0, 5)
-        .map((task) => ({
-          ...task,
-          deadlineText: task.deadline ? new Date(task.deadline).toLocaleString() : "未设置"
-        }));
-
+    if (!quiet) {
       this.setData({
-        state,
-        todoTasks
+        isLoadingState: true,
+        loadError: '',
       });
+    }
+
+    try {
+      const state = await this.getStateRequest(options);
+      this.serverStateLoaded = true;
+      this.applyState(state);
+
+      const app = getAppInstance();
+      if (app && app.setStateCache) app.setStateCache(state);
+
       return state;
     } catch (error) {
-      if (!quiet) wx.showToast({ title: error.message || "加载失败", icon: "none" });
+      const message = getErrorMessage(error);
+      this.setData({
+        isLoadingState: false,
+        loadError: this.data.stateReady ? '' : message,
+      });
+
+      if (!quiet && this.data.stateReady) {
+        wx.showToast({ title: message, icon: 'none' });
+      }
       return null;
+    }
+  },
+
+  async retryLoadState() {
+    const state = await this.loadState({ usePreload: false });
+    if (state && state.space) {
+      this.startSyncClient(state.syncCursor);
+    } else {
+      this.stopSyncClient();
     }
   },
 
@@ -85,16 +206,25 @@ Page({
         this.handleSyncEvents(events).catch(() => {});
       },
       onError: (error) => {
+        if (sync.isRetryableSyncError(error)) return;
+        if (sync.isTerminalSyncError(error)) {
+          this.loadState({ quiet: true, usePreload: false }).then((state) => {
+            if (!state || !state.space) this.stopSyncClient();
+          });
+          return;
+        }
         if (this.syncErrorShown) return;
         this.syncErrorShown = true;
-        wx.showToast({ title: error.message || "同步连接失败", icon: "none" });
-      }
+        wx.showToast({ title: error.message || '同步连接失败', icon: 'none' });
+      },
     });
     this.syncClient.start();
   },
 
   async handleSyncEvents(events) {
-    const validEvents = (events || []).filter(event => event && typeof event.v === "number");
+    const validEvents = (events || []).filter(
+      (event) => event && typeof event.v === 'number',
+    );
     if (validEvents.length === 0) return;
 
     if (!this.handledSyncVersions) this.handledSyncVersions = {};
@@ -111,20 +241,21 @@ Page({
     }
 
     const message = sync.getEventMessage(freshEvents[freshEvents.length - 1]);
-    if (message) wx.showToast({ title: message, icon: "none" });
+    if (message) wx.showToast({ title: message, icon: 'none' });
   },
 
   go(event) {
-    wx.navigateTo({ url: event.currentTarget.dataset.url });
+    const url = event.currentTarget.dataset.url;
+    if (url) wx.navigateTo({ url });
   },
 
   async finish(event) {
     try {
       await api.completeTask(event.currentTarget.dataset.id);
-      await this.loadState();
-      wx.showToast({ title: "已完成", icon: "success" });
+      await this.loadState({ usePreload: false });
+      wx.showToast({ title: '已完成', icon: 'success' });
     } catch (error) {
-      wx.showToast({ title: error.message || "操作失败", icon: "none" });
+      wx.showToast({ title: error.message || '操作失败', icon: 'none' });
     }
-  }
+  },
 });

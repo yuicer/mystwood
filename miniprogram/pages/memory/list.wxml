@@ -1,7 +1,7 @@
 <view class="page-wrap">
   <view class="card">
     <view class="section-title" style="margin-bottom:12rpx">回忆时间线</view>
-    <view wx:if="{{memories.length === 0}}" class="hint">还没有归档内容。</view>
+    <view wx:if="{{memories.length === 0}}" class="hint">还没有回忆。</view>
     <view wx:for="{{memories}}" wx:key="_id" class="list-item">
       <view>{{item.title}}</view>
       <view class="hint">{{item.statusText}}</view>

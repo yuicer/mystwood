@@ -1,7 +1,24 @@
-<view style="padding:24rpx">
-  <view class="card">
-    <view style="font-size:30rpx;font-weight:600">关系解绑</view>
-    <view class="hint" style="margin:12rpx 0">解绑后数据不保留，不可恢复。</view>
-    <button class="btn-danger" bindtap="dissolve">解绑并清空数据</button>
+<view class="settings-page">
+  <view class="card settings-card">
+    <view class="settings-title">空间名称</view>
+    <view class="hint settings-hint">这个名字会显示在你们的空间首页。</view>
+    <input
+      class="settings-input"
+      maxlength="30"
+      placeholder="输入空间名称"
+      value="{{spaceName}}"
+      bindinput="onSpaceNameInput"
+    />
+    <view class="action-row">
+      <button class="small-action save-button" loading="{{savingName}}" disabled="{{savingName}}" bindtap="saveSpaceName">保存名称</button>
+    </view>
+  </view>
+
+  <view class="card settings-card danger-card">
+    <view class="settings-title">关系解绑</view>
+    <view class="hint settings-hint">解绑后数据不保留，不可恢复。</view>
+    <view class="action-row">
+      <button class="small-action danger-action" bindtap="dissolve">解绑并清空数据</button>
+    </view>
   </view>
 </view>

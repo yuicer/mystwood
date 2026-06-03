@@ -111,6 +111,11 @@ Page({
         this.handleSyncEvents(events);
       },
       onError: (error) => {
+        if (sync.isRetryableSyncError(error)) return;
+        if (sync.isTerminalSyncError(error)) {
+          this.stopInviteClient();
+          return;
+        }
         if (this.syncErrorShown) return;
         this.syncErrorShown = true;
         wx.showToast({ title: error.message || "同步连接失败", icon: "none" });

@@ -1,1 +1,63 @@
-/* pages/me/settings.wxss */
+.settings-page {
+  min-height: 100vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+  background: #f7f6f3;
+}
+
+.settings-card {
+  padding: 26rpx;
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(55, 53, 47, 0.08);
+}
+
+.settings-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #252525;
+}
+
+.settings-hint {
+  margin-top: 12rpx;
+}
+
+.settings-input {
+  margin-top: 18rpx;
+  border: 1px solid #e5e7eb;
+  padding: 16rpx 18rpx;
+  border-radius: 14rpx;
+  background: #fbfbfa;
+  color: #37352f;
+  font-size: 28rpx;
+}
+
+.action-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18rpx;
+}
+
+.small-action {
+  min-width: 148rpx;
+  margin: 0;
+  padding: 0 22rpx;
+  border: 0;
+  border-radius: 999rpx;
+  background: #2f2f2f;
+  color: #ffffff;
+  font-size: 24rpx;
+  line-height: 58rpx;
+}
+
+.small-action::after {
+  border: 0;
+}
+
+.danger-card {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.danger-action {
+  background: #fff1f1;
+  color: #c73a3a;
+}

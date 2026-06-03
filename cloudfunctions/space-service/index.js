@@ -10,6 +10,7 @@ const SPACE_STATUS = {
 
 const SYNC_EVENT_TYPES = {
   INVITE_CONFIRMED: 'INVITE_CONFIRMED',
+  SPACE_UPDATED: 'SPACE_UPDATED',
   SPACE_DISSOLVED: 'SPACE_DISSOLVED'
 }
 
@@ -177,8 +178,8 @@ async function waitSyncEvents(openid, event) {
 
   const startedAt = Date.now()
   let cursor = clampNumber(event.cursor, Number((space.sync && space.sync.version) || 0), 0, Number.MAX_SAFE_INTEGER)
-  const timeoutMs = clampNumber(event.timeoutMs, 15000, 3000, 25000)
-  const intervalMs = clampNumber(event.intervalMs, 4000, 1000, 8000)
+  const timeoutMs = clampNumber(event.timeoutMs, 12000, 3000, 15000)
+  const intervalMs = clampNumber(event.intervalMs, 2500, 1000, 6000)
   const limit = clampNumber(event.limit, 20, 1, 50)
 
   while (Date.now() - startedAt < timeoutMs) {
@@ -252,6 +253,29 @@ exports.main = async (event, context) => {
         }
         const created = await db.collection('spaces').add({ data: doc })
         return { code: 0, data: { ...toClientSpace({ _id: created._id, ...doc }), syncCursor: doc.sync.version } }
+      }
+      case 'renameSpace': {
+        const nextName = typeof name === 'string' ? name.trim() : ''
+        if (!nextName) return { code: 400, message: '请填写空间名称' }
+        if (nextName.length > 30) return { code: 400, message: '空间名称最多 30 个字' }
+
+        const space = await getCurrentSpace(wxContext.OPENID)
+        if (!space) return { code: 404, message: '请先创建空间' }
+
+        const change = createSyncChange(space, {
+          type: SYNC_EVENT_TYPES.SPACE_UPDATED,
+          actor: wxContext.OPENID,
+          targetOpenids: space.members || [],
+          entityType: 'space',
+          entityId: space._id,
+          payload: {
+            name: nextName
+          }
+        })
+        const sync = appendSyncChange(space, change)
+
+        await db.collection('spaces').doc(space._id).update({ data: { name: nextName, sync } })
+        return { code: 0, data: true }
       }
       case 'getInvite': {
         if (!inviteToken) return { code: 400, message: '邀请码无效' }

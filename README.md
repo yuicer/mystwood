@@ -27,12 +27,15 @@ Mystwood 是一个双人亲密度小程序。聚焦“创建空间 -> 邀请对�
 3. 接收方按 `inviteToken` 接受邀请。
 4. 发送方邀请页通过伪 socket 长轮询接收 `INVITE_CONFIRMED` 事件，空间变为 `active` 后自动跳转首页。
 5. 任务创建和完成。
-6. 回忆归档，由 `completed` / `overdue` 任务派生。
-7. 解绑空间。
-8. 主题逻辑收敛在 `space-service`，首页直接使用 `state.space.theme`。
-9. `acceptInvite`、`createTask`、`completeTask`、`dissolveSpace` 会更新 `spaces.sync.changes`，供长轮询同步和问题追溯。
-10. 首页通过 `waitSyncEvents` 长轮询接收邀请确认、任务创建、任务完成或解绑事件，收到后刷新 `getState()` 并提示。
-11. 在线协同同步只走伪 socket 长轮询云函数；不使用 `wx.connectSocket` 或外部 `wss://` 服务。
+6. 回忆，由 `completed` / `overdue` 任务派生。
+7. 修改空间名称。
+8. 解绑空间。
+9. 主题逻辑收敛在 `space-service`，首页用 `state.space.theme` 适配背景和 UI 氛围，不直接展示主题名称。
+10. `acceptInvite`、`renameSpace`、`createTask`、`completeTask`、`dissolveSpace` 会更新 `spaces.sync.changes`，供长轮询同步和问题追溯。
+11. 首页通过 `waitSyncEvents` 长轮询接收邀请确认、空间名称修改、任务创建、任务完成或解绑事件，收到后刷新 `getState()` 并提示。
+12. 在线协同同步只走伪 socket 长轮询云函数；不使用 `wx.connectSocket` 或外部 `wss://` 服务。
+13. 小程序启动后会预加载 `getState()`，首页用官方异步 `wx.getStorage` 读取本地空间快照；能拿到缓存就直接渲染，再用服务端数据校准，拿不到缓存时先显示 loading，接口明确返回后再显示创建空间空态。
+14. 长轮询同步对 504003、超时和网络失败做静默重试，不把临时同步错误暴露成普通接口报错。
 
 ## 3. 目录
 
@@ -45,7 +48,7 @@ miniprogram/
   pages/space/create             # 创建空间
   pages/space/invite             # 邀请、分享、接受邀请
   pages/task/create              # 创建任务
-  pages/memory/list              # 回忆归档
+  pages/memory/list              # 回忆
   pages/me/settings              # 设置/解绑
 cloudfunctions/
   space-service                  # 空间、邀请、状态聚合、主题
@@ -72,7 +75,7 @@ AGENTS.md                        # Codex/AI 协作提示文件
 2. 确认云开发环境为 `cloud1-d1gawczd613a07bab`。
 3. 上传并部署 `cloudfunctions`。
 4. 确认云数据库有创建好的 db collection 集合：`spaces`。
-5. 在线同步由 `space-service/waitSyncEvents` 长轮询模拟 socket；可在 `miniprogram/config.js` 调整 `syncLongPoll.timeoutMs` 和 `syncLongPoll.intervalMs`。
+5. 在线同步由 `space-service/waitSyncEvents` 长轮询模拟 socket；可在 `miniprogram/config.js` 调整 `syncLongPoll.timeoutMs` 和 `syncLongPoll.intervalMs`。当前客户端单次空闲长轮询为 12 秒，云函数 `space-service/config.json` 超时为 30 秒。
 
 ## 5. 用户流程
 
@@ -82,7 +85,7 @@ flowchart TD
   CreateSpace["space/create 创建空间"]
   Invite["space/invite 邀请页"]
   CreateTask["task/create 创建任务"]
-  Memory["memory/list 回忆归档"]
+  Memory["memory/list 回忆"]
   Settings["me/settings 设置解绑"]
 
   Index -->|无空间| CreateSpace
@@ -101,12 +104,12 @@ flowchart TD
 
 | 页面 | 数据来源 | 主要动作 | 路由/API |
 | --- | --- | --- | --- |
-| `pages/index/index` | `api.getState()`、`api.waitSyncEvents()` | 展示空间、任务、完成任务、前台同步事件 | `wx.navigateTo`、`wx.showToast` |
+| `pages/index/index` | `api.getState()`、本地空间快照、`api.waitSyncEvents()` | 展示空间、任务、完成任务、首屏 loading、前台同步事件 | `wx.navigateTo`、`wx.showToast` |
 | `pages/space/create` | 表单 | 创建空间 | `wx.redirectTo` |
 | `pages/space/invite` | `api.getState()`、`api.getInvite(inviteToken)`、`api.waitSyncEvents()` | 复制邀请码、微信分享邀请、接受邀请、接收发送方同步状态 | `wx.setClipboardData`、`wx.showShareMenu`、`open-type="share"`、`wx.redirectTo` |
 | `pages/task/create` | 表单 | 创建任务 | `wx.navigateTo`、`wx.showToast` |
 | `pages/memory/list` | `api.getState()` | 展示 completed/overdue 任务 | `wx.showToast` |
-| `pages/me/settings` | 无持久设置 | 解绑空间 | `wx.showModal`、`wx.reLaunch` |
+| `pages/me/settings` | `api.getState()` | 修改空间名称、解绑空间 | `wx.showModal`、`wx.reLaunch` |
 
 ## 6. 业务 API
 
@@ -116,6 +119,7 @@ flowchart TD
 | --- | --- | --- | --- |
 | `getState()` | `space-service/getState` | 无 | `{ space, tasks, memories, syncCursor }` |
 | `createSpace(name)` | `space-service/createSpace` | `name` | 新建空间 |
+| `renameSpace(name)` | `space-service/renameSpace` | `name` | `true` |
 | `getInvite(inviteToken)` | `space-service/getInvite` | `inviteToken` | 邀请空间公开信息 |
 | `acceptInvite(inviteToken)` | `space-service/acceptInvite` | `inviteToken` | `true` |
 | `dissolveSpace()` | `space-service/dissolveSpace` | 无 | `true` |
@@ -143,10 +147,11 @@ flowchart TD
 | --- | --- | --- |
 | `getState` | 按 `members` 查询当前空间，从 `space.tasks` 派生任务和回忆，返回 `syncCursor` | 单文档任务数量需要控制 |
 | `createSpace` | 创建 `pending` 空间、邀请码、默认分数、主题、空任务数组和 `sync` 初始状态 | 已限制用户只能有一个未解绑空间 |
+| `renameSpace` | 校验当前用户空间后更新 `spaces.name`，追加 `SPACE_UPDATED` change | 名称最多 30 个字 |
 | `getInvite` | 按 `inviteToken` 查询 `pending` 空间，返回公开邀请信息 | 不暴露成员列表 |
 | `acceptInvite` | 按 `inviteToken` 查询 `pending` 空间，加入当前用户并把空间置为 `active`，追加 `INVITE_CONFIRMED` change | 当前限制用户已有空间时不能再接受 |
 | `dissolveSpace` | 追加 `SPACE_DISSOLVED` change，清空成员、邀请码和任务，并把空间标记为 `dissolved` | 仅保留最小同步痕迹 |
-| `waitSyncEvents` | 校验当前用户空间后长轮询 `space.sync.changes`，返回 `v > cursor` 的目标 change | 云函数超时时间需高于 `timeoutMs` |
+| `waitSyncEvents` | 校验当前用户空间后长轮询 `space.sync.changes`，返回 `v > cursor` 的目标 change | 云函数超时时间需高于 `timeoutMs`；当前函数 timeout 30 秒、客户端 timeout 12 秒 |
 
 主题阈值：
 
@@ -231,8 +236,10 @@ flowchart TD
 4. 页面进入后启动伪 socket 客户端，持续调用 `waitSyncEvents()` 长轮询云函数。
 5. 接收方接受邀请后写入 `INVITE_CONFIRMED` 事件；发送方如果停留在首页或邀请页，长轮询返回该事件，客户端刷新并提示。
 6. 发送方如果点开自己分享出去的邀请链接，邀请页会先判断当前用户是否属于该 `inviteToken` 对应空间；如果空间已激活则提示并跳转首页。
-7. 双方进入 `active` 空间后，创建任务会写入 `TASK_CREATED` 事件；对方首页通过长轮询收到后刷新待办列表。
-8. 页面隐藏或卸载时停止长轮询客户端。
+7. 设置页修改空间名称会写入 `SPACE_UPDATED` 事件；对方首页通过长轮询收到后刷新空间名称。
+8. 双方进入 `active` 空间后，创建任务会写入 `TASK_CREATED` 事件；对方首页通过长轮询收到后刷新待办列表。
+9. 页面隐藏或卸载时停止长轮询客户端。
+10. 504003、超时和网络类同步错误会自动退避重试；终止类错误会停止当前轮询并刷新状态。
 
 ### 后续原则
 
@@ -260,7 +267,7 @@ flowchart TD
 | 字段 | 说明 |
 | --- | --- |
 | `v` | change 版本号，用作同步游标 |
-| `type` | `INVITE_CONFIRMED` / `TASK_CREATED` / `TASK_COMPLETED` / `SPACE_DISSOLVED` |
+| `type` | `INVITE_CONFIRMED` / `SPACE_UPDATED` / `TASK_CREATED` / `TASK_COMPLETED` / `SPACE_DISSOLVED` |
 | `targets` | 需要感知该 change 的 OPENID，服务端过滤用，不返回客户端 |
 | `entity` | `space` / `task` |
 | `entityId` | 关联实体 ID |

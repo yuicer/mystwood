@@ -4,6 +4,7 @@ const api = require("./api.js");
 
 const EVENT_TYPES = {
   INVITE_CONFIRMED: "INVITE_CONFIRMED",
+  SPACE_UPDATED: "SPACE_UPDATED",
   TASK_CREATED: "TASK_CREATED",
   TASK_COMPLETED: "TASK_COMPLETED",
   SPACE_DISSOLVED: "SPACE_DISSOLVED"
@@ -11,6 +12,7 @@ const EVENT_TYPES = {
 
 const REFRESH_EVENT_TYPES = [
   EVENT_TYPES.INVITE_CONFIRMED,
+  EVENT_TYPES.SPACE_UPDATED,
   EVENT_TYPES.TASK_CREATED,
   EVENT_TYPES.TASK_COMPLETED,
   EVENT_TYPES.SPACE_DISSOLVED
@@ -23,6 +25,8 @@ function getEventMessage(event) {
   switch (event.type) {
     case EVENT_TYPES.INVITE_CONFIRMED:
       return "对方已确认加入";
+    case EVENT_TYPES.SPACE_UPDATED:
+      return "空间名称已更新";
     case EVENT_TYPES.TASK_CREATED:
       return payload.title ? `新任务：${payload.title}` : "对方创建了新任务";
     case EVENT_TYPES.TASK_COMPLETED:
@@ -38,6 +42,26 @@ function shouldRefreshForEvents(events) {
   return (events || []).some(event => REFRESH_EVENT_TYPES.includes(event.type));
 }
 
+function getErrorText(error) {
+  if (!error) return "";
+  return [
+    error.errCode,
+    error.code,
+    error.errMsg,
+    error.message
+  ].filter(Boolean).join(" ");
+}
+
+function isRetryableSyncError(error) {
+  const errorText = getErrorText(error);
+  return /504003|timeout|timed out|network|request:fail|callFunction:fail|ECONN|ETIMEDOUT|超时/i.test(errorText);
+}
+
+function isTerminalSyncError(error) {
+  const errorText = getErrorText(error);
+  return /(^|\s)404(\s|$)|请先创建空间/.test(errorText);
+}
+
 function normalizeEvents(payload) {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
@@ -49,8 +73,8 @@ function normalizeEvents(payload) {
 function createSimulatedSocketClient(options) {
   const opts = options || {};
   const retryDelays = [5000, 10000, 20000, 40000];
-  const timeoutMs = opts.timeoutMs || 15000;
-  const intervalMs = opts.intervalMs || 4000;
+  const timeoutMs = opts.timeoutMs || 12000;
+  const intervalMs = opts.intervalMs || 2500;
   const emptyReconnectMinMs = opts.emptyReconnectMinMs || 1500;
   const emptyReconnectMaxMs = opts.emptyReconnectMaxMs || 4500;
   const limit = opts.limit || 20;
@@ -108,6 +132,7 @@ function createSimulatedSocketClient(options) {
       } catch (error) {
         if (stopped) break;
         if (opts.onError) opts.onError(error);
+        if (isTerminalSyncError(error)) break;
         await sleep(getRetryDelay());
         retryCount += 1;
       }
@@ -137,5 +162,7 @@ module.exports = {
   EVENT_TYPES,
   getEventMessage,
   shouldRefreshForEvents,
+  isRetryableSyncError,
+  isTerminalSyncError,
   createSimulatedSocketClient
 };
