@@ -4,6 +4,7 @@
     "pages/space/create",
     "pages/space/invite",
     "pages/task/create",
+    "pages/task/detail",
     "pages/memory/list",
     "pages/me/settings"
   ],
@@ -13,6 +14,14 @@
     "navigationBarBackgroundColor": "#ffffff",
     "backgroundColor": "#f6f7fb"
   },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于在创建任务时通过地图选择地点"
+    }
+  },
+  "requiredPrivateInfos": [
+    "chooseLocation"
+  ],
   "usingComponents": {},
   "sitemapLocation": "sitemap.json"
 }

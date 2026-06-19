@@ -16,9 +16,8 @@
 }
 
 .loading-spinner {
-  width: 64rpx;
-  height: 64rpx;
-  margin-bottom: 24rpx;
+  width: 56rpx;
+  height: 56rpx;
   border: 6rpx solid rgba(47, 47, 47, 0.12);
   border-top-color: #2f2f2f;
   border-radius: 999rpx;
@@ -31,7 +30,6 @@
   }
 }
 
-.loading-title,
 .empty-title {
   font-size: 36rpx;
   font-weight: 600;
@@ -43,40 +41,6 @@
 
 .error-hint {
   margin: 12rpx 0 20rpx;
-}
-
-.sync-strip {
-  display: inline-flex;
-  align-items: center;
-  margin: 0 0 16rpx;
-  padding: 8rpx 16rpx;
-  border: 1px solid rgba(47, 47, 47, 0.08);
-  border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.76);
-  color: #5f5d59;
-  font-size: 22rpx;
-}
-
-.sync-dot {
-  width: 12rpx;
-  height: 12rpx;
-  margin-right: 10rpx;
-  border-radius: 999rpx;
-  background: #2b6777;
-  animation: mystwood-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes mystwood-pulse {
-  0%,
-  100% {
-    opacity: 0.36;
-    transform: scale(0.86);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
 
 .space-card {
@@ -195,7 +159,7 @@
 .entry-main::after,
 .settings-icon::after,
 .memory-link::after,
-.finish-button::after {
+.task-delete-action::after {
   border: 0;
 }
 
@@ -242,16 +206,62 @@
   margin-bottom: 12rpx;
 }
 
-.task-row {
+.task-swipe {
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid #f1f2ef;
+}
+
+.task-swipe:first-of-type {
+  border-top: 0;
+}
+
+.task-delete-action {
+  position: absolute;
+  left: 0;
+  top: 10rpx;
+  width: 112rpx;
+  height: 112rpx;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 12rpx;
+  background: #e03e3e;
+  color: #ffffff;
+  font-size: 26rpx;
+  line-height: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+}
+
+.task-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  min-height: 132rpx;
+  border-top: 0;
+  background: #ffffff;
+  transition: transform 0.18s ease;
+}
+
+.task-swipe-active .task-row {
+  transform: translateX(128rpx);
 }
 
 .task-info {
   flex: 1;
   min-width: 0;
-  padding-right: 16rpx;
+}
+
+.task-cover {
+  flex: 0 0 112rpx;
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 12rpx;
+  background: #f2f2f0;
 }
 
 .task-name {
@@ -260,11 +270,6 @@
   word-break: break-all;
 }
 
-.finish-button {
-  margin: 0;
-  padding: 0 20rpx;
-  background: #eef6f3;
-  border-color: #cfe3da;
-  color: #1f6b54;
-  line-height: 54rpx;
+.task-time {
+  margin-top: 6rpx;
 }

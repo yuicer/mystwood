@@ -1,47 +1,40 @@
 # AGENTS.md
 
-This file gives Codex and other coding agents durable project context. Keep it short and practical. Product facts and roadmap details live in `README.md`; this file focuses on how to work in this repository.
+Durable context for coding agents working in this repo. Keep product facts in `README.md`; keep this file focused on how to work safely and reliable.
 
 ## Project Shape
 
 - Mystwood is a native WeChat Mini Program backed by WeChat Cloud Functions.
-- There is no standalone HTTP backend. Business calls should go through `wx.cloud.callFunction` via `miniprogram/utils/api.js`.
+- There is no standalone HTTP backend. Business calls go through `wx.cloud.callFunction` via `miniprogram/utils/api.js`.
 - Cloud functions live in `cloudfunctions/space-service` and `cloudfunctions/task-service`.
-- The product is a two-person intimacy space: create space, invite partner, create tasks, complete tasks, update hidden intimacy score, and turn completed/overdue tasks into memories.
+- The cloud database is the source of truth for spaces, tasks, memories, sync events, and hidden score/theme state.
 
 ## Working Habits
 
-- Read `README.md` before changing product behavior, data models, APIs, or collaboration flows.
-- Keep README current when changing user flows, cloud function actions, data schemas, or the two-person sync strategy.
-- Prefer small, reviewable changes that follow the existing native Mini Program style.
-- Do not introduce a new framework, build system, or HTTP service unless the user explicitly asks for that direction.
-- Use ASCII for code and config unless editing existing Chinese product copy or documentation.
+- Read `README.md` before changing user flows, data models, cloud actions, routing, or sync behavior.
+- Keep changes small and native Mini Program style; do not introduce a framework, build system, or HTTP service unless explicitly asked.
+- Update `README.md` when changing cloud actions, page flows, data schemas, sync events, or WeChat API usage.
+- Use ASCII for code/config unless editing existing Chinese product copy or docs.
+- Preserve user changes in the worktree; do not revert unrelated files.
 
-## WeChat Mini Program Rules
+## Mini Program Rules
 
-- Add or change client API wrappers in `miniprogram/utils/api.js` before using a cloud function from a page.
+- Add or update wrappers in `miniprogram/utils/api.js` before calling a cloud function from a page.
 - Do not scatter raw `wx.cloud.callFunction` calls across pages.
-- Use `wx.showToast({ icon: "none" })` for user-facing error messages unless a page already has a stronger pattern.
-- Keep route changes consistent with the current non-tabBar app structure.
-- Use WeChat-native capabilities for share, media, cloud storage, location, and subscription messages.
+- Use `wx.showToast({ icon: "none" })` for user-facing errors unless the page already has another pattern.
+- Keep routes consistent with the current non-tabBar structure and register new pages in `miniprogram/app.json`.
+- Prefer WeChat-native APIs for share, media, cloud storage, location, and subscription messages.
 
 ## Cloud Function Rules
 
 - Treat `cloud.getWXContext().OPENID` as the authority for the current user.
-- Never trust client-provided `spaceId`, `creator`, score, theme, member list, or other security-sensitive fields.
+- Never trust client-provided `spaceId`, `creator`, members, score, theme, or other security-sensitive fields.
 - Validate that write operations belong to the current user's space before mutating data.
 - Keep success responses shaped as `{ code: 0, data }` and errors as `{ code, message }`.
-- When adding two-person collaboration features, make the cloud database the source of truth and let `getState()` aggregate the client-facing view.
-
-## Data Collaboration Direction
-
-- Preserve the one-user-one-space and two-members-per-space product constraint.
-- Hidden intimacy score should remain hidden from the UI; expose theme and UI state, not raw score as a product feature.
-- For future sync work, prefer explicit state machines, append-only sync events, idempotent writes, and subscription-message fallback.
-- Important future hardening tasks are documented in the README: ownership checks, active-space checks, cascade cleanup, score updates, task invite receipts, and sync events.
+- For collaboration changes, write the database first, append a `spaces.sync.changes` event, and let `getState()` aggregate the client view.
 
 ## Verification
 
-- For documentation-only changes, inspect the rendered Markdown mentally and run lightweight checks such as `git diff --check` when practical.
-- For cloud function changes, at minimum inspect affected actions and verify the client wrapper still matches the cloud action name and return shape.
-- For page changes, verify the page is registered in `miniprogram/app.json` when adding routes.
+- Documentation/style-only changes: inspect Markdown mentally and run `git diff --check` when practical.
+- JavaScript/cloud changes: run `node --check` on affected `.js` files or the whole `miniprogram`/`cloudfunctions` tree.
+- Cloud action changes: verify the client wrapper action name and return shape still match.

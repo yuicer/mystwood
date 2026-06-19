@@ -1,7 +1,6 @@
-<view class="index-page" style="background:{{state.space && state.space.theme ? state.space.theme.bg : '#f7f6f3'}}">
+<view class="index-page" style="background:{{state.space && state.space.theme ? state.space.theme.bg : pageBackground}}">
   <view wx:if="{{isLoadingState && !stateReady}}" class="card loading-card">
     <view class="loading-spinner"></view>
-    <view class="loading-title">loading...</view>
   </view>
 
   <view wx:elif="{{loadError && !stateReady}}" class="card load-error-card">
@@ -11,11 +10,6 @@
   </view>
 
   <block wx:else>
-    <view wx:if="{{isLoadingState}}" class="sync-strip">
-      <view class="sync-dot"></view>
-      <view>同步最新状态</view>
-    </view>
-
     <view wx:if="{{!state.space}}" class="card empty-card">
       <view class="empty-title">欢迎来到亲密空间</view>
       <view class="hint empty-copy">先创建你们的双人空间，再邀请 TA 加入。</view>
@@ -60,12 +54,30 @@
 
         <view wx:if="{{todoTasks.length > 0}}" class="card task-card">
           <view class="section-title task-title">待完成任务</view>
-          <view wx:for="{{todoTasks}}" wx:key="_id" class="list-item task-row">
-            <view class="task-info">
-              <view class="task-name">{{item.title}}</view>
-              <view class="hint">截止：{{item.deadlineText || '未设置'}}</view>
+          <view
+            wx:for="{{todoTasks}}"
+            wx:key="_id"
+            class="task-swipe {{activeSwipeTaskId === item._id ? 'task-swipe-active' : ''}}"
+            data-id="{{item._id}}"
+            bindtouchstart="onTaskTouchStart"
+            bindtouchend="onTaskTouchEnd"
+          >
+            <button class="task-delete-action" data-id="{{item._id}}" catchtap="deleteTask">删除</button>
+            <view class="list-item task-row" data-id="{{item._id}}" bindtap="openTaskDetail">
+              <image
+                wx:if="{{item.coverImageUrl}}"
+                class="task-cover"
+                src="{{item.coverImageUrl}}"
+                mode="aspectFill"
+                data-index="{{index}}"
+                catchtap="previewTaskImage"
+              ></image>
+              <view class="task-info">
+                <view class="task-name">{{item.title}}</view>
+                <view class="hint task-time">{{item.appointmentText || '未约定'}}</view>
+                <view wx:if="{{item.locationTitle}}" class="hint location-link" data-index="{{index}}" catchtap="openTaskLocation">地点：{{item.locationTitle}}</view>
+              </view>
             </view>
-            <button class="finish-button" size="mini" data-id="{{item._id}}" bindtap="finish">完成</button>
           </view>
         </view>
       </block>

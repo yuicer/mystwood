@@ -8,11 +8,94 @@ const SPACE_STATUS = {
 
 const SYNC_EVENT_TYPES = {
   TASK_CREATED: 'TASK_CREATED',
-  TASK_COMPLETED: 'TASK_COMPLETED'
+  TASK_UPDATED: 'TASK_UPDATED',
+  TASK_IMAGES_ADDED: 'TASK_IMAGES_ADDED',
+  TASK_COMPLETED: 'TASK_COMPLETED',
+  TASK_DELETED: 'TASK_DELETED'
 }
+
+const LOCATION_SOURCES = ['wx-choose-location', 'qqmap-poi', 'qqmap-center']
+const MAX_TASK_IMAGE_COUNT = 9
 
 function getUniqueOpenids(openids) {
   return Array.from(new Set((openids || []).filter(openid => typeof openid === 'string' && openid)))
+}
+
+function toText(value, maxLength = 120) {
+  if (typeof value !== 'string') return ''
+  return value.trim().slice(0, maxLength)
+}
+
+function toNullableNumber(value, min, max) {
+  const numberValue = Number(value)
+  if (!Number.isFinite(numberValue)) return null
+  if (numberValue < min || numberValue > max) return null
+  return numberValue
+}
+
+function normalizeAppointmentAt(value) {
+  if (value === null || typeof value === 'undefined' || value === '') return null
+  return toNullableNumber(value, 0, 4102444800000)
+}
+
+function normalizeTaskLocation(rawLocation) {
+  const source = rawLocation && LOCATION_SOURCES.includes(rawLocation.source)
+    ? rawLocation.source
+    : ''
+  const latitude = rawLocation ? toNullableNumber(rawLocation.latitude, -90, 90) : null
+  const longitude = rawLocation ? toNullableNumber(rawLocation.longitude, -180, 180) : null
+  const hasPoint = latitude !== null && longitude !== null
+  const name = toText(rawLocation && rawLocation.name, 80)
+  const address = toText(rawLocation && rawLocation.address, 160)
+
+  if (!hasPoint) return null
+
+  return {
+    source: source || 'wx-choose-location',
+    name,
+    address,
+    latitude: hasPoint ? latitude : null,
+    longitude: hasPoint ? longitude : null,
+    coordinateType: 'gcj02',
+    poiId: toText(rawLocation && rawLocation.poiId, 80)
+  }
+}
+
+function getImageFileId(rawImage) {
+  const fileID = typeof rawImage === 'string'
+    ? toText(rawImage, 512)
+    : rawImage && typeof rawImage === 'object'
+      ? toText(rawImage.fileID || rawImage.url || rawImage.imageUrl, 512)
+      : ''
+  return fileID.startsWith('cloud://') ? fileID : ''
+}
+
+function normalizeTaskImages(rawImages, fallbackImageUrl) {
+  const imageValues = Array.isArray(rawImages) ? rawImages.slice() : []
+  if (fallbackImageUrl) imageValues.push(fallbackImageUrl)
+
+  const seen = {}
+  return imageValues
+    .map(getImageFileId)
+    .filter(fileID => {
+      if (!fileID || seen[fileID]) return false
+      seen[fileID] = true
+      return true
+    })
+    .slice(0, MAX_TASK_IMAGE_COUNT)
+}
+
+function toClientLocation(location) {
+  if (!location) return null
+  return {
+    source: location.source || '',
+    name: location.name || '',
+    address: location.address || '',
+    latitude: typeof location.latitude === 'number' ? location.latitude : null,
+    longitude: typeof location.longitude === 'number' ? location.longitude : null,
+    coordinateType: location.coordinateType || 'gcj02',
+    poiId: location.poiId || ''
+  }
 }
 
 function createInitialSync(now) {
@@ -57,12 +140,18 @@ function appendSyncChange(space, change) {
 }
 
 function toClientTask(task) {
+  const location = toClientLocation(task.location)
+  const appointmentAt = task.appointmentAt || task.deadline || null
+  const images = normalizeTaskImages(task.images, task.imageUrl)
   return {
     _id: task._id,
     title: task.title,
-    locationName: task.locationName || '',
-    imageUrl: task.imageUrl || '',
-    deadline: task.deadline || null,
+    desc: task.desc || '',
+    location,
+    images,
+    imageUrl: images[0] || '',
+    appointmentAt,
+    deadline: appointmentAt,
     status: task.status,
     createdAt: task.createdAt,
     completedAt: task.completedAt || null
@@ -75,8 +164,13 @@ exports.main = async (event) => {
   try {
     switch (action) {
       case 'createTask': {
-        const title = payload && typeof payload.title === 'string' ? payload.title.trim() : ''
-        if (!title) return { code: 400, message: '请填写任务标题' }
+        const taskPayload = payload || {}
+        const title = typeof taskPayload.title === 'string' ? taskPayload.title.trim() : ''
+        if (!title) return { code: 400, message: '请填写任务名称' }
+        const desc = toText(taskPayload.desc, 240)
+        const location = normalizeTaskLocation(taskPayload.location)
+        const appointmentAt = normalizeAppointmentAt(taskPayload.appointmentAt || taskPayload.deadline)
+        const images = normalizeTaskImages(taskPayload.images, taskPayload.imageUrl)
 
         const spaceRes = await db.collection('spaces').where({ members: wxContext.OPENID }).limit(1).get()
         const space = spaceRes.data[0]
@@ -87,9 +181,12 @@ exports.main = async (event) => {
           _id: createTaskId(),
           creator: wxContext.OPENID,
           title,
-          locationName: payload.locationName || '',
-          imageUrl: payload.imageUrl || '',
-          deadline: payload.deadline || null,
+          desc,
+          location,
+          images,
+          imageUrl: images[0] || '',
+          appointmentAt,
+          deadline: appointmentAt,
           status: 'todo',
           createdAt: Date.now()
         }
@@ -103,7 +200,12 @@ exports.main = async (event) => {
           entityId: task._id,
           payload: {
             title,
-            deadline: task.deadline,
+            desc,
+            location,
+            imageUrl: task.imageUrl,
+            imageCount: task.images.length,
+            appointmentAt: task.appointmentAt,
+            deadline: task.appointmentAt,
             status: task.status
           }
         })
@@ -112,6 +214,130 @@ exports.main = async (event) => {
 
         await db.collection('spaces').doc(space._id).update({ data: { tasks, sync } })
         return { code: 0, data: toClientTask(task) }
+      }
+      case 'updateTask': {
+        if (!id) return { code: 400, message: '任务不存在' }
+
+        const taskPayload = payload || {}
+        const title = typeof taskPayload.title === 'string' ? taskPayload.title.trim() : ''
+        if (!title) return { code: 400, message: '请填写任务名称' }
+
+        const desc = toText(taskPayload.desc, 240)
+        const location = normalizeTaskLocation(taskPayload.location)
+        const appointmentAt = normalizeAppointmentAt(taskPayload.appointmentAt || taskPayload.deadline)
+        const images = normalizeTaskImages(taskPayload.images, taskPayload.imageUrl)
+
+        const spaceRes = await db.collection('spaces').where({ members: wxContext.OPENID }).limit(1).get()
+        const space = spaceRes.data[0]
+        if (!space) return { code: 404, message: '请先创建空间' }
+
+        const tasks = space.tasks || []
+        const taskIndex = tasks.findIndex(task => task && task._id === id)
+        if (taskIndex < 0) return { code: 404, message: '任务不存在' }
+
+        const task = tasks[taskIndex]
+        const updatedTask = {
+          ...task,
+          title,
+          desc,
+          location,
+          images,
+          imageUrl: images[0] || '',
+          appointmentAt,
+          deadline: appointmentAt
+        }
+        const updatedTasks = tasks.map((row, index) => index === taskIndex ? updatedTask : row)
+        const change = createSyncChange(space, {
+          type: SYNC_EVENT_TYPES.TASK_UPDATED,
+          actor: wxContext.OPENID,
+          targetOpenids: space.members || [],
+          entityType: 'task',
+          entityId: id,
+          payload: {
+            title,
+            appointmentAt,
+            imageCount: images.length
+          }
+        })
+        const sync = appendSyncChange(space, change)
+
+        await db.collection('spaces').doc(space._id).update({ data: { tasks: updatedTasks, sync } })
+        return { code: 0, data: toClientTask(updatedTask) }
+      }
+      case 'addTaskImages': {
+        if (!id) return { code: 400, message: '任务不存在' }
+
+        const incomingImages = normalizeTaskImages(payload && payload.images)
+        if (incomingImages.length === 0) return { code: 400, message: '请先选择图片' }
+
+        const spaceRes = await db.collection('spaces').where({ members: wxContext.OPENID }).limit(1).get()
+        const space = spaceRes.data[0]
+        if (!space) return { code: 404, message: '请先创建空间' }
+
+        const tasks = space.tasks || []
+        const taskIndex = tasks.findIndex(task => task && task._id === id)
+        if (taskIndex < 0) return { code: 404, message: '任务不存在' }
+
+        const task = tasks[taskIndex]
+        const currentImages = normalizeTaskImages(task.images, task.imageUrl)
+        if (currentImages.length >= MAX_TASK_IMAGE_COUNT) {
+          return { code: 400, message: `最多上传 ${MAX_TASK_IMAGE_COUNT} 张图片` }
+        }
+
+        const images = normalizeTaskImages([...currentImages, ...incomingImages])
+        if (images.length === currentImages.length) {
+          return { code: 0, data: toClientTask({ ...task, images, imageUrl: images[0] || '' }) }
+        }
+
+        const updatedTask = {
+          ...task,
+          images,
+          imageUrl: images[0] || ''
+        }
+        const updatedTasks = tasks.map((row, index) => index === taskIndex ? updatedTask : row)
+        const change = createSyncChange(space, {
+          type: SYNC_EVENT_TYPES.TASK_IMAGES_ADDED,
+          actor: wxContext.OPENID,
+          targetOpenids: space.members || [],
+          entityType: 'task',
+          entityId: id,
+          payload: {
+            title: task.title || '',
+            imageCount: images.length
+          }
+        })
+        const sync = appendSyncChange(space, change)
+
+        await db.collection('spaces').doc(space._id).update({ data: { tasks: updatedTasks, sync } })
+        return { code: 0, data: toClientTask(updatedTask) }
+      }
+      case 'deleteTask': {
+        if (!id) return { code: 400, message: '任务不存在' }
+
+        const spaceRes = await db.collection('spaces').where({ members: wxContext.OPENID }).limit(1).get()
+        const space = spaceRes.data[0]
+        if (!space) return { code: 404, message: '请先创建空间' }
+
+        const tasks = space.tasks || []
+        const taskIndex = tasks.findIndex(task => task && task._id === id)
+        if (taskIndex < 0) return { code: 404, message: '任务不存在' }
+
+        const task = tasks[taskIndex]
+        const updatedTasks = tasks.filter((row, index) => index !== taskIndex)
+        const change = createSyncChange(space, {
+          type: SYNC_EVENT_TYPES.TASK_DELETED,
+          actor: wxContext.OPENID,
+          targetOpenids: space.members || [],
+          entityType: 'task',
+          entityId: id,
+          payload: {
+            title: task.title || ''
+          }
+        })
+        const sync = appendSyncChange(space, change)
+
+        await db.collection('spaces').doc(space._id).update({ data: { tasks: updatedTasks, sync } })
+        return { code: 0, data: true }
       }
       case 'completeTask': {
         if (!id) return { code: 400, message: '任务不存在' }

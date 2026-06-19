@@ -32,6 +32,8 @@ const THEME_PRESETS = [
   }
 ]
 
+const MAX_TASK_IMAGE_COUNT = 9
+
 function getSpaceTheme(score) {
   const currentScore = typeof score === 'number' ? score : 50
   return THEME_PRESETS.find(theme => currentScore <= theme.maxScore) || THEME_PRESETS[THEME_PRESETS.length - 1]
@@ -116,14 +118,57 @@ function toClientSpace(space) {
   }
 }
 
+function toClientLocation(location) {
+  if (!location) return null
+  return {
+    source: location.source || '',
+    name: location.name || '',
+    address: location.address || '',
+    latitude: typeof location.latitude === 'number' ? location.latitude : null,
+    longitude: typeof location.longitude === 'number' ? location.longitude : null,
+    coordinateType: location.coordinateType || 'gcj02',
+    poiId: location.poiId || ''
+  }
+}
+
+function getImageFileId(rawImage) {
+  const fileID = typeof rawImage === 'string'
+    ? rawImage.trim().slice(0, 512)
+    : rawImage && typeof rawImage === 'object'
+      ? String(rawImage.fileID || rawImage.url || rawImage.imageUrl || '').trim().slice(0, 512)
+      : ''
+  return fileID.startsWith('cloud://') ? fileID : ''
+}
+
+function normalizeTaskImages(rawImages, fallbackImageUrl) {
+  const imageValues = Array.isArray(rawImages) ? rawImages.slice() : []
+  if (fallbackImageUrl) imageValues.push(fallbackImageUrl)
+
+  const seen = {}
+  return imageValues
+    .map(getImageFileId)
+    .filter(fileID => {
+      if (!fileID || seen[fileID]) return false
+      seen[fileID] = true
+      return true
+    })
+    .slice(0, MAX_TASK_IMAGE_COUNT)
+}
+
 function toClientTask(task) {
   if (!task) return null
+  const location = toClientLocation(task.location)
+  const appointmentAt = task.appointmentAt || task.deadline || null
+  const images = normalizeTaskImages(task.images, task.imageUrl)
   return {
     _id: task._id,
     title: task.title,
-    locationName: task.locationName || '',
-    imageUrl: task.imageUrl || '',
-    deadline: task.deadline || null,
+    desc: task.desc || '',
+    location,
+    images,
+    imageUrl: images[0] || '',
+    appointmentAt,
+    deadline: appointmentAt,
     status: task.status,
     createdAt: task.createdAt,
     completedAt: task.completedAt || null

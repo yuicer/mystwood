@@ -2,7 +2,10 @@
 
 const api = require('../../utils/api.js');
 const config = require('../../config.js');
+const lbs = require('../../utils/lbs.js');
 const sync = require('../../utils/sync.js');
+const taskImages = require('../../utils/task-images.js');
+const time = require('../../utils/time.js');
 
 const HAPPY_LINES = [
   '小东西，真可爱，谁研究的呢',
@@ -12,6 +15,8 @@ const HAPPY_LINES = [
   '不希望你有一点点的难过',
   '都是轻松，明亮的！',
 ];
+
+const DEFAULT_PAGE_BACKGROUND = 'linear-gradient(135deg,#f7f6f3,#eadfc9,#d8e3dc)';
 
 function createEmptyState() {
   return {
@@ -50,6 +55,8 @@ Page({
   data: {
     state: createEmptyState(),
     todoTasks: [],
+    activeSwipeTaskId: '',
+    pageBackground: DEFAULT_PAGE_BACKGROUND,
     happyLine: pickHappyLine(),
     isLoadingState: true,
     stateReady: false,
@@ -125,16 +132,23 @@ Page({
     const todoTasks = (state.tasks || [])
       .filter((task) => task.status === 'todo')
       .slice(0, 5)
-      .map((task) => ({
-        ...task,
-        deadlineText: task.deadline
-          ? new Date(task.deadline).toLocaleString()
-          : '未设置',
-      }));
+      .map((task) => {
+        const imageUrls = taskImages.normalizeImageUrls(task.images, task.imageUrl);
+        return {
+          ...task,
+          imageUrls,
+          coverImageUrl: imageUrls[0] || '',
+          locationTitle: lbs.getLocationName(task.location),
+          appointmentText: task.appointmentAt || task.deadline
+            ? time.formatAppointmentTime(task.appointmentAt || task.deadline)
+            : '未约定',
+        };
+      });
 
     this.setData({
       state,
       todoTasks,
+      activeSwipeTaskId: '',
       stateReady: true,
       isLoadingState: !!(options && options.fromCache),
       loadError: '',
@@ -249,11 +263,75 @@ Page({
     if (url) wx.navigateTo({ url });
   },
 
-  async finish(event) {
+  openTaskLocation(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    const task = this.data.todoTasks[index];
+    if (!task || !task.location) return;
+    lbs.openLocation(task.location);
+  },
+
+  openTaskDetail(event) {
+    const id = event.currentTarget.dataset.id;
+    if (!id) return;
+    if (this.data.activeSwipeTaskId) {
+      this.setData({ activeSwipeTaskId: '' });
+      return;
+    }
+    wx.navigateTo({ url: `/pages/task/detail?id=${id}` });
+  },
+
+  previewTaskImage(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    const task = this.data.todoTasks[index];
+    if (!task) return;
+    taskImages.previewImages(task.imageUrls, 0);
+  },
+
+  onTaskTouchStart(event) {
+    const touch = event.touches && event.touches[0];
+    if (!touch) return;
+    this.taskTouchStartX = touch.clientX;
+    this.taskTouchStartY = touch.clientY;
+    this.taskTouchId = event.currentTarget.dataset.id;
+  },
+
+  onTaskTouchEnd(event) {
+    const touch = event.changedTouches && event.changedTouches[0];
+    if (!touch || !this.taskTouchId) return;
+
+    const deltaX = touch.clientX - this.taskTouchStartX;
+    const deltaY = touch.clientY - this.taskTouchStartY;
+    const isHorizontal = Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 36;
+
+    if (isHorizontal && deltaX > 0) {
+      this.setData({ activeSwipeTaskId: this.taskTouchId });
+    } else if (isHorizontal && deltaX < 0) {
+      this.setData({ activeSwipeTaskId: '' });
+    }
+
+    this.taskTouchId = '';
+  },
+
+  async deleteTask(event) {
+    const id = event.currentTarget.dataset.id;
+    if (!id) return;
+
+    const modal = await new Promise((resolve) => {
+      wx.showModal({
+        title: '删除任务',
+        content: '删除后不会进入回忆，确定删除吗？',
+        confirmText: '删除',
+        confirmColor: '#e03e3e',
+        success: resolve,
+        fail: () => resolve({ confirm: false })
+      });
+    });
+    if (!modal.confirm) return;
+
     try {
-      await api.completeTask(event.currentTarget.dataset.id);
+      await api.deleteTask(id);
       await this.loadState({ usePreload: false });
-      wx.showToast({ title: '已完成', icon: 'success' });
+      wx.showToast({ title: '已删除', icon: 'success' });
     } catch (error) {
       wx.showToast({ title: error.message || '操作失败', icon: 'none' });
     }

@@ -6,7 +6,10 @@ const EVENT_TYPES = {
   INVITE_CONFIRMED: "INVITE_CONFIRMED",
   SPACE_UPDATED: "SPACE_UPDATED",
   TASK_CREATED: "TASK_CREATED",
+  TASK_UPDATED: "TASK_UPDATED",
+  TASK_IMAGES_ADDED: "TASK_IMAGES_ADDED",
   TASK_COMPLETED: "TASK_COMPLETED",
+  TASK_DELETED: "TASK_DELETED",
   SPACE_DISSOLVED: "SPACE_DISSOLVED"
 };
 
@@ -14,7 +17,10 @@ const REFRESH_EVENT_TYPES = [
   EVENT_TYPES.INVITE_CONFIRMED,
   EVENT_TYPES.SPACE_UPDATED,
   EVENT_TYPES.TASK_CREATED,
+  EVENT_TYPES.TASK_UPDATED,
+  EVENT_TYPES.TASK_IMAGES_ADDED,
   EVENT_TYPES.TASK_COMPLETED,
+  EVENT_TYPES.TASK_DELETED,
   EVENT_TYPES.SPACE_DISSOLVED
 ];
 
@@ -29,8 +35,14 @@ function getEventMessage(event) {
       return "空间名称已更新";
     case EVENT_TYPES.TASK_CREATED:
       return payload.title ? `新任务：${payload.title}` : "对方创建了新任务";
+    case EVENT_TYPES.TASK_UPDATED:
+      return payload.title ? `任务已更新：${payload.title}` : "对方更新了任务";
+    case EVENT_TYPES.TASK_IMAGES_ADDED:
+      return payload.title ? `任务有新图片：${payload.title}` : "对方上传了任务图片";
     case EVENT_TYPES.TASK_COMPLETED:
       return "对方完成了任务";
+    case EVENT_TYPES.TASK_DELETED:
+      return "对方删除了任务";
     case EVENT_TYPES.SPACE_DISSOLVED:
       return "空间已解绑";
     default:
