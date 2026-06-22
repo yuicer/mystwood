@@ -51,11 +51,36 @@ function pickHappyLine() {
   return HAPPY_LINES[Math.floor(Math.random() * HAPPY_LINES.length)];
 }
 
+function getTaskKindText(kind) {
+  if (kind === 'together') return '邀请一起做';
+  if (kind === 'for_partner') return '希望 TA 做';
+  return '自愿去做';
+}
+
+function getTaskStatusText(task) {
+  const permissions = task.permissions || {};
+  const completion = task.completion || {};
+
+  if (task.status === 'pending') return permissions.canAccept ? '等待你同意' : '等待 TA 同意';
+  if (task.kind === 'self') return permissions.isCreator ? '正在进行' : 'TA 的自愿约定';
+  if (task.kind === 'together') {
+    if (completion.isMineCompleted) return '我已完成，等 TA';
+    if (completion.isPartnerCompleted) return 'TA 已完成，等你';
+    return '一起进行中';
+  }
+  return permissions.isCreator ? '等待 TA 完成' : '等你完成';
+}
+
+function getTaskSortRank(task) {
+  if ((task.permissions || {}).canAccept) return 0;
+  if (task.status === 'pending') return 1;
+  return 2;
+}
+
 Page({
   data: {
     state: createEmptyState(),
-    todoTasks: [],
-    activeSwipeTaskId: '',
+    taskCards: [],
     pageBackground: DEFAULT_PAGE_BACKGROUND,
     happyLine: pickHappyLine(),
     isLoadingState: true,
@@ -68,18 +93,35 @@ Page({
   syncErrorShown: false,
   serverStateLoaded: false,
 
-  onLoad() {
+  onLoad(options) {
     this.setData({ happyLine: pickHappyLine() });
+    this.shouldShowPrivateSharePrompt = !!(options && options.privateTaskShare === '1');
     this.applyCachedState();
   },
 
   async onShow() {
     const state = await this.loadState({ usePreload: true });
+    this.showPrivateSharePrompt(state);
     if (state && state.space) {
       this.startSyncClient(state.syncCursor);
     } else {
       this.stopSyncClient();
     }
+  },
+
+  showPrivateSharePrompt(state) {
+    if (!this.shouldShowPrivateSharePrompt) return;
+    this.shouldShowPrivateSharePrompt = false;
+    const hasSpace = !!(state && state.space);
+    wx.showModal({
+      title: '这是一份私密约定',
+      content: '它只对约定双方开放。创建属于你们的双人空间，也开始一份新的约定吧。',
+      showCancel: false,
+      confirmText: hasSpace ? '回到首页' : '创建空间',
+      success: () => {
+        if (!hasSpace) wx.navigateTo({ url: '/pages/space/create' });
+      }
+    });
   },
 
   onHide() {
@@ -129,26 +171,27 @@ Page({
 
   applyState(nextState, options) {
     const state = normalizeState(nextState);
-    const todoTasks = (state.tasks || [])
-      .filter((task) => task.status === 'todo')
-      .slice(0, 5)
+    const taskCards = [...(state.tasks || [])]
+      .sort((first, second) => getTaskSortRank(first) - getTaskSortRank(second))
+      .slice(0, 8)
       .map((task) => {
         const imageUrls = taskImages.normalizeImageUrls(task.images, task.imageUrl);
         return {
           ...task,
           imageUrls,
           coverImageUrl: imageUrls[0] || '',
+          kindText: getTaskKindText(task.kind),
+          statusText: getTaskStatusText(task),
           locationTitle: lbs.getLocationName(task.location),
-          appointmentText: task.appointmentAt || task.deadline
-            ? time.formatAppointmentTime(task.appointmentAt || task.deadline)
+          appointmentText: task.appointmentAt
+            ? time.formatAppointmentTime(task.appointmentAt)
             : '未约定',
         };
       });
 
     this.setData({
       state,
-      todoTasks,
-      activeSwipeTaskId: '',
+      taskCards,
       stateReady: true,
       isLoadingState: !!(options && options.fromCache),
       loadError: '',
@@ -265,7 +308,7 @@ Page({
 
   openTaskLocation(event) {
     const index = Number(event.currentTarget.dataset.index);
-    const task = this.data.todoTasks[index];
+    const task = this.data.taskCards[index];
     if (!task || !task.location) return;
     lbs.openLocation(task.location);
   },
@@ -273,67 +316,14 @@ Page({
   openTaskDetail(event) {
     const id = event.currentTarget.dataset.id;
     if (!id) return;
-    if (this.data.activeSwipeTaskId) {
-      this.setData({ activeSwipeTaskId: '' });
-      return;
-    }
     wx.navigateTo({ url: `/pages/task/detail?id=${id}` });
   },
 
   previewTaskImage(event) {
     const index = Number(event.currentTarget.dataset.index);
-    const task = this.data.todoTasks[index];
+    const task = this.data.taskCards[index];
     if (!task) return;
     taskImages.previewImages(task.imageUrls, 0);
   },
 
-  onTaskTouchStart(event) {
-    const touch = event.touches && event.touches[0];
-    if (!touch) return;
-    this.taskTouchStartX = touch.clientX;
-    this.taskTouchStartY = touch.clientY;
-    this.taskTouchId = event.currentTarget.dataset.id;
-  },
-
-  onTaskTouchEnd(event) {
-    const touch = event.changedTouches && event.changedTouches[0];
-    if (!touch || !this.taskTouchId) return;
-
-    const deltaX = touch.clientX - this.taskTouchStartX;
-    const deltaY = touch.clientY - this.taskTouchStartY;
-    const isHorizontal = Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 36;
-
-    if (isHorizontal && deltaX > 0) {
-      this.setData({ activeSwipeTaskId: this.taskTouchId });
-    } else if (isHorizontal && deltaX < 0) {
-      this.setData({ activeSwipeTaskId: '' });
-    }
-
-    this.taskTouchId = '';
-  },
-
-  async deleteTask(event) {
-    const id = event.currentTarget.dataset.id;
-    if (!id) return;
-
-    const modal = await new Promise((resolve) => {
-      wx.showModal({
-        title: '删除任务',
-        content: '删除后不会进入回忆，确定删除吗？',
-        confirmText: '删除',
-        confirmColor: '#e03e3e',
-        success: resolve,
-        fail: () => resolve({ confirm: false })
-      });
-    });
-    if (!modal.confirm) return;
-
-    try {
-      await api.deleteTask(id);
-      await this.loadState({ usePreload: false });
-      wx.showToast({ title: '已删除', icon: 'success' });
-    } catch (error) {
-      wx.showToast({ title: error.message || '操作失败', icon: 'none' });
-    }
-  },
 });

@@ -1,3 +1,49 @@
+.kind-heading {
+  margin-bottom: 18rpx;
+  color: #37352f;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.kind-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  margin-bottom: 26rpx;
+}
+
+.kind-option {
+  width: 100%;
+  margin: 0;
+  padding: 18rpx 20rpx;
+  border: 2rpx solid #e5e7eb;
+  border-radius: 14rpx;
+  background: #ffffff;
+  color: #37352f;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.kind-option::after {
+  border: 0;
+}
+
+.kind-option-selected {
+  border-color: #5a9b84;
+  background: #f2faf6;
+}
+
+.kind-title {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.kind-desc {
+  margin-top: 6rpx;
+  color: #787774;
+  font-size: 23rpx;
+}
+
 .title-field {
   box-sizing: border-box;
   width: 100%;

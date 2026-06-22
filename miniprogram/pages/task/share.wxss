@@ -1,0 +1,21 @@
+.share-loading-card {
+  min-height: 220rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-loading-spinner {
+  width: 56rpx;
+  height: 56rpx;
+  border: 6rpx solid rgba(47, 47, 47, 0.12);
+  border-top-color: #2f2f2f;
+  border-radius: 999rpx;
+  animation: mystwood-share-spin 0.9s linear infinite;
+}
+
+@keyframes mystwood-share-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

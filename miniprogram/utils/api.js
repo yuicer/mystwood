@@ -68,16 +68,20 @@ module.exports = {
   createTask(payload) {
     return callFunction("task-service", { action: "createTask", payload });
   },
-  updateTask(id, payload) {
-    return callFunction("task-service", { action: "updateTask", id, payload });
-  },
-  addTaskImages(id, images) {
-    return callFunction("task-service", { action: "addTaskImages", id, payload: { images } });
+  respondTask(id, decision, note) {
+    return callFunction("task-service", {
+      action: "respondTask",
+      id,
+      payload: { decision, note: note || "" }
+    });
   },
   completeTask(id) {
     return callFunction("task-service", { action: "completeTask", id });
   },
   deleteTask(id) {
     return callFunction("task-service", { action: "deleteTask", id });
+  },
+  resolveTaskShare(id, shareToken) {
+    return callFunction("task-service", { action: "resolveTaskShare", id, shareToken });
   }
 };

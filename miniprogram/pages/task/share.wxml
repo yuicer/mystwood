@@ -1,0 +1,5 @@
+<view class="page-wrap">
+  <view class="card share-loading-card">
+    <view class="share-loading-spinner"></view>
+  </view>
+</view>

@@ -16,8 +16,8 @@ Page({
         memories: (state.memories || []).map((item) => ({
           ...item,
           locationTitle: lbs.getLocationName(item.location),
-          statusText: item.status === "completed" ? "已完成" : "逾期扣分",
-          timeText: time.formatAppointmentTime(item.completedAt || item.appointmentAt || item.deadline || item.createdAt, { emptyText: "" })
+          statusText: item.status === "completed" ? "已完成" : "已婉拒",
+          timeText: time.formatAppointmentTime(item.completedAt || item.responseAt || item.createdAt, { emptyText: "" })
         }))
       });
     } catch (error) {
@@ -30,5 +30,11 @@ Page({
     const memory = this.data.memories[index];
     if (!memory || !memory.location) return;
     lbs.openLocation(memory.location);
+  },
+
+  openMemoryDetail(event) {
+    const id = event.currentTarget.dataset.id;
+    if (!id) return;
+    wx.navigateTo({ url: `/pages/task/detail?id=${id}` });
   }
 });

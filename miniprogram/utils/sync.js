@@ -6,8 +6,10 @@ const EVENT_TYPES = {
   INVITE_CONFIRMED: "INVITE_CONFIRMED",
   SPACE_UPDATED: "SPACE_UPDATED",
   TASK_CREATED: "TASK_CREATED",
-  TASK_UPDATED: "TASK_UPDATED",
-  TASK_IMAGES_ADDED: "TASK_IMAGES_ADDED",
+  TASK_PROPOSED: "TASK_PROPOSED",
+  TASK_ACCEPTED: "TASK_ACCEPTED",
+  TASK_DECLINED: "TASK_DECLINED",
+  TASK_PARTICIPANT_COMPLETED: "TASK_PARTICIPANT_COMPLETED",
   TASK_COMPLETED: "TASK_COMPLETED",
   TASK_DELETED: "TASK_DELETED",
   SPACE_DISSOLVED: "SPACE_DISSOLVED"
@@ -17,8 +19,10 @@ const REFRESH_EVENT_TYPES = [
   EVENT_TYPES.INVITE_CONFIRMED,
   EVENT_TYPES.SPACE_UPDATED,
   EVENT_TYPES.TASK_CREATED,
-  EVENT_TYPES.TASK_UPDATED,
-  EVENT_TYPES.TASK_IMAGES_ADDED,
+  EVENT_TYPES.TASK_PROPOSED,
+  EVENT_TYPES.TASK_ACCEPTED,
+  EVENT_TYPES.TASK_DECLINED,
+  EVENT_TYPES.TASK_PARTICIPANT_COMPLETED,
   EVENT_TYPES.TASK_COMPLETED,
   EVENT_TYPES.TASK_DELETED,
   EVENT_TYPES.SPACE_DISSOLVED
@@ -34,15 +38,19 @@ function getEventMessage(event) {
     case EVENT_TYPES.SPACE_UPDATED:
       return "空间名称已更新";
     case EVENT_TYPES.TASK_CREATED:
-      return payload.title ? `新任务：${payload.title}` : "对方创建了新任务";
-    case EVENT_TYPES.TASK_UPDATED:
-      return payload.title ? `任务已更新：${payload.title}` : "对方更新了任务";
-    case EVENT_TYPES.TASK_IMAGES_ADDED:
-      return payload.title ? `任务有新图片：${payload.title}` : "对方上传了任务图片";
+      return payload.title ? `TA 新建了约定：${payload.title}` : "TA 新建了一份约定";
+    case EVENT_TYPES.TASK_PROPOSED:
+      return payload.title ? `TA 邀请你：${payload.title}` : "TA 发来了一份约定";
+    case EVENT_TYPES.TASK_ACCEPTED:
+      return payload.title ? `TA 同意了：${payload.title}` : "TA 同意了这份约定";
+    case EVENT_TYPES.TASK_DECLINED:
+      return payload.title ? `TA 婉拒了：${payload.title}` : "TA 婉拒了这份约定";
+    case EVENT_TYPES.TASK_PARTICIPANT_COMPLETED:
+      return payload.title ? `TA 完成了：${payload.title}` : "TA 完成了自己的部分";
     case EVENT_TYPES.TASK_COMPLETED:
-      return "对方完成了任务";
+      return payload.title ? `约定已完成：${payload.title}` : "这份约定已完成";
     case EVENT_TYPES.TASK_DELETED:
-      return "对方删除了任务";
+      return "TA 删除了一份约定";
     case EVENT_TYPES.SPACE_DISSOLVED:
       return "空间已解绑";
     default:

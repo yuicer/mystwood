@@ -2,9 +2,9 @@
   <view class="card">
     <view class="section-title" style="margin-bottom:12rpx">回忆时间线</view>
     <view wx:if="{{memories.length === 0}}" class="hint">还没有回忆。</view>
-    <view wx:for="{{memories}}" wx:key="_id" class="list-item">
+    <view wx:for="{{memories}}" wx:key="_id" class="list-item" data-id="{{item._id}}" bindtap="openMemoryDetail">
       <view>{{item.title}}</view>
-      <view wx:if="{{item.locationTitle}}" class="hint location-link" data-index="{{index}}" bindtap="openMemoryLocation">地点：{{item.locationTitle}}</view>
+      <view wx:if="{{item.locationTitle}}" class="hint location-link" data-index="{{index}}" catchtap="openMemoryLocation">地点：{{item.locationTitle}}</view>
       <view class="hint">{{item.statusText}}</view>
       <view class="hint">{{item.timeText}}</view>
     </view>

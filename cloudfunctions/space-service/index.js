@@ -14,6 +14,13 @@ const SYNC_EVENT_TYPES = {
   SPACE_DISSOLVED: 'SPACE_DISSOLVED'
 }
 
+const TASK_STATUS = {
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  COMPLETED: 'completed',
+  DECLINED: 'declined'
+}
+
 const THEME_PRESETS = [
   {
     maxScore: 39,
@@ -155,11 +162,29 @@ function normalizeTaskImages(rawImages, fallbackImageUrl) {
     .slice(0, MAX_TASK_IMAGE_COUNT)
 }
 
-function toClientTask(task) {
+function getTaskParticipants(task) {
+  return getUniqueOpenids(task && task.participantOpenids)
+}
+
+function getCompletedOpenids(task) {
+  const participants = getTaskParticipants(task)
+  return getUniqueOpenids(task && task.completedOpenids).filter(openid => participants.includes(openid))
+}
+
+function toClientTask(task, openid) {
   if (!task) return null
   const location = toClientLocation(task.location)
-  const appointmentAt = task.appointmentAt || task.deadline || null
+  const appointmentAt = task.appointmentAt || null
   const images = normalizeTaskImages(task.images, task.imageUrl)
+  const participants = getTaskParticipants(task)
+  const completedOpenids = getCompletedOpenids(task)
+  const isCreator = task.creator === openid
+  const isTarget = task.targetOpenid === openid
+  const isParticipant = participants.includes(openid)
+  const isMineCompleted = completedOpenids.includes(openid)
+  const isPartnerCompleted = completedOpenids.some(completedOpenid => completedOpenid !== openid)
+  const isOpen = task.status === TASK_STATUS.PENDING || task.status === TASK_STATUS.ACTIVE
+
   return {
     _id: task._id,
     title: task.title,
@@ -168,10 +193,27 @@ function toClientTask(task) {
     images,
     imageUrl: images[0] || '',
     appointmentAt,
-    deadline: appointmentAt,
+    kind: task.kind,
     status: task.status,
+    responseNote: task.responseNote || '',
+    responseAt: task.responseAt || null,
     createdAt: task.createdAt,
-    completedAt: task.completedAt || null
+    completedAt: task.completedAt || null,
+    completion: {
+      requiredCount: participants.length,
+      completedCount: completedOpenids.length,
+      isMineCompleted,
+      isPartnerCompleted
+    },
+    permissions: {
+      isCreator,
+      canAccept: task.status === TASK_STATUS.PENDING && isTarget,
+      canDecline: task.status === TASK_STATUS.PENDING && isTarget,
+      canComplete: task.status === TASK_STATUS.ACTIVE && isParticipant && !isMineCompleted,
+      canDelete: isCreator,
+      canShare: isCreator && isOpen
+    },
+    shareToken: isCreator && isOpen ? task.shareToken || '' : ''
   }
 }
 
@@ -188,11 +230,14 @@ function toClientChange(change) {
 }
 
 async function getCurrentSpace(openid, options = {}) {
-  const spaceRes = await db.collection('spaces').where({ members: openid }).limit(1).get()
-  const space = spaceRes.data[0] || null
-  if (!space) return null
-  if (!options.includeDissolved && space.status === SPACE_STATUS.DISSOLVED) return null
-  return space
+  const spaceRes = await db.collection('spaces').where({ members: openid }).limit(10).get()
+  const spaces = spaceRes.data || []
+  const currentSpace = spaces.find(space => space && space.status !== SPACE_STATUS.DISSOLVED)
+  if (currentSpace) return currentSpace
+  if (options.includeDissolved) {
+    return spaces.find(space => space && space.status === SPACE_STATUS.DISSOLVED) || null
+  }
+  return null
 }
 
 async function querySyncChanges({ openid, spaceId, cursor, limit }) {
@@ -218,7 +263,7 @@ function getNextCursor(cursor, changes) {
 }
 
 async function waitSyncEvents(openid, event) {
-  const space = await getCurrentSpace(openid)
+  const space = await getCurrentSpace(openid, { includeDissolved: true })
   if (!space) return { code: 404, message: '请先创建空间' }
 
   const startedAt = Date.now()
@@ -273,8 +318,9 @@ exports.main = async (event, context) => {
         const rawSpace = await getCurrentSpace(wxContext.OPENID)
         if (!rawSpace) return { code: 0, data: { space: null, tasks: [], memories: [], syncCursor: 0 } }
 
-        const tasks = (rawSpace.tasks || []).map(toClientTask).filter(Boolean)
-        const memories = tasks.filter(t => t.status === 'completed' || t.status === 'overdue')
+        const allTasks = (rawSpace.tasks || []).map(task => toClientTask(task, wxContext.OPENID)).filter(Boolean)
+        const tasks = allTasks.filter(task => task.status === TASK_STATUS.PENDING || task.status === TASK_STATUS.ACTIVE)
+        const memories = allTasks.filter(task => task.status === TASK_STATUS.COMPLETED || task.status === TASK_STATUS.DECLINED)
         const syncCursor = Number((rawSpace.sync && rawSpace.sync.version) || 0)
 
         return { code: 0, data: { space: toClientSpace(rawSpace), tasks, memories, syncCursor } }
@@ -340,22 +386,24 @@ exports.main = async (event, context) => {
       case 'acceptInvite': {
         if (!inviteToken) return { code: 400, message: '邀请码无效' }
 
-        const currentSpaceRes = await db.collection('spaces').where({ members: wxContext.OPENID }).limit(1).get()
-        if (currentSpaceRes.data[0]) return { code: 400, message: '你已加入一个空间' }
+        const currentSpace = await getCurrentSpace(wxContext.OPENID)
+        if (currentSpace) return { code: 400, message: '你已加入一个空间' }
 
         const pending = await db.collection('spaces').where({ inviteToken, status: SPACE_STATUS.PENDING }).limit(1).get()
         const row = pending.data[0]
         if (!row) return { code: 404, message: '邀请不存在或已失效' }
 
-        if ((row.members || []).includes(wxContext.OPENID)) {
+        const currentMembers = getUniqueOpenids(row.members || [])
+        if (currentMembers.includes(wxContext.OPENID)) {
           return { code: 400, message: '不能接受自己的邀请' }
         }
+        if (currentMembers.length !== 1) return { code: 400, message: '邀请状态异常，请重新创建邀请' }
 
-        const members = Array.from(new Set([...(row.members || []), wxContext.OPENID]))
+        const members = [...currentMembers, wxContext.OPENID]
         const change = createSyncChange(row, {
           type: SYNC_EVENT_TYPES.INVITE_CONFIRMED,
           actor: wxContext.OPENID,
-          targetOpenids: row.members || [],
+          targetOpenids: currentMembers,
           entityType: 'space',
           entityId: row._id,
           payload: {
@@ -364,17 +412,24 @@ exports.main = async (event, context) => {
         })
         const sync = appendSyncChange(row, change)
 
-        await db.collection('spaces').doc(row._id).update({ data: { status: SPACE_STATUS.ACTIVE, members, sync } })
+        const updated = await db.collection('spaces').where({
+          _id: row._id,
+          inviteToken,
+          status: SPACE_STATUS.PENDING
+        }).update({ data: { status: SPACE_STATUS.ACTIVE, members, sync } })
+        if (!updated.stats || updated.stats.updated < 1) {
+          return { code: 409, message: '邀请已被处理，请刷新后再试' }
+        }
         return { code: 0, data: true }
       }
       case 'dissolveSpace': {
-        const spaceRes = await db.collection('spaces').where({ members: wxContext.OPENID }).limit(1).get()
-        const space = spaceRes.data[0]
+        const space = await getCurrentSpace(wxContext.OPENID)
         if (!space) return { code: 0, data: true }
+        const members = getUniqueOpenids(space.members || [])
         const change = createSyncChange(space, {
           type: SYNC_EVENT_TYPES.SPACE_DISSOLVED,
           actor: wxContext.OPENID,
-          targetOpenids: space.members || [],
+          targetOpenids: members,
           entityType: 'space',
           entityId: space._id,
           payload: {
@@ -386,7 +441,7 @@ exports.main = async (event, context) => {
         await db.collection('spaces').doc(space._id).update({
           data: {
             status: SPACE_STATUS.DISSOLVED,
-            members: [],
+            members,
             inviteToken: '',
             tasks: [],
             sync,

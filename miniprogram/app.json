@@ -5,6 +5,7 @@
     "pages/space/invite",
     "pages/task/create",
     "pages/task/detail",
+    "pages/task/share",
     "pages/memory/list",
     "pages/me/settings"
   ],

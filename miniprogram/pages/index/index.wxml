@@ -46,23 +46,19 @@
           <button class="entry-main" data-url="/pages/task/create" bindtap="go">
             <view class="entry-plus">+</view>
             <view class="entry-copy">
-              <view class="entry-title">一起去做！</view>
-              <view class="entry-desc">美好的，是我们一起度过的时光</view>
+              <view class="entry-title">发起一个约定</view>
+              <view class="entry-desc">把想做的事，好好约定下来</view>
             </view>
           </button>
         </view>
 
-        <view wx:if="{{todoTasks.length > 0}}" class="card task-card">
-          <view class="section-title task-title">待完成任务</view>
+        <view wx:if="{{taskCards.length > 0}}" class="card task-card">
+          <view class="section-title task-title">我们的约定</view>
           <view
-            wx:for="{{todoTasks}}"
+            wx:for="{{taskCards}}"
             wx:key="_id"
-            class="task-swipe {{activeSwipeTaskId === item._id ? 'task-swipe-active' : ''}}"
-            data-id="{{item._id}}"
-            bindtouchstart="onTaskTouchStart"
-            bindtouchend="onTaskTouchEnd"
+            class="task-swipe"
           >
-            <button class="task-delete-action" data-id="{{item._id}}" catchtap="deleteTask">删除</button>
             <view class="list-item task-row" data-id="{{item._id}}" bindtap="openTaskDetail">
               <image
                 wx:if="{{item.coverImageUrl}}"
@@ -73,7 +69,11 @@
                 catchtap="previewTaskImage"
               ></image>
               <view class="task-info">
-                <view class="task-name">{{item.title}}</view>
+                <view class="task-title-row">
+                  <view class="task-name">{{item.title}}</view>
+                  <view class="task-status">{{item.statusText}}</view>
+                </view>
+                <view class="task-kind">{{item.kindText}}</view>
                 <view class="hint task-time">{{item.appointmentText || '未约定'}}</view>
                 <view wx:if="{{item.locationTitle}}" class="hint location-link" data-index="{{index}}" catchtap="openTaskLocation">地点：{{item.locationTitle}}</view>
               </view>

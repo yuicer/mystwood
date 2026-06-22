@@ -1,6 +1,20 @@
 <view class="page-wrap">
   <view class="card">
-    <input class="field title-field" placeholder="任务名称" value="{{form.title}}" maxlength="40" bindinput="onTitleInput" />
+    <view class="kind-heading">这次想做一个怎样的约定？</view>
+    <view class="kind-options">
+      <button
+        wx:for="{{kindOptions}}"
+        wx:key="value"
+        class="kind-option {{selectedKind === item.value ? 'kind-option-selected' : ''}}"
+        data-kind="{{item.value}}"
+        bindtap="selectKind"
+      >
+        <view class="kind-title">{{item.title}}</view>
+        <view class="kind-desc">{{item.desc}}</view>
+      </button>
+    </view>
+
+    <input class="field title-field" placeholder="约定名称" value="{{form.title}}" maxlength="40" bindinput="onTitleInput" />
     <textarea class="field description-field" placeholder="详细描述（选填）" value="{{form.desc}}" maxlength="240" show-confirm-bar="{{false}}" bindinput="onDescInput" />
 
     <view class="meta-stack">
@@ -34,6 +48,6 @@
       </view>
     </view>
 
-    <button class="btn-primary create-button" bindtap="create">创建任务</button>
+    <button class="btn-primary create-button" bindtap="create">发出约定</button>
   </view>
 </view>

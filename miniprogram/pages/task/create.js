@@ -5,9 +5,29 @@ const lbs = require("../../utils/lbs.js");
 const taskForm = require("../../utils/task-form.js");
 const taskImages = require("../../utils/task-images.js");
 
+const TASK_KIND_OPTIONS = [
+  {
+    value: "self",
+    title: "自愿去做",
+    desc: "我想为自己做到，完成由我来决定。"
+  },
+  {
+    value: "together",
+    title: "邀请一起做",
+    desc: "等 TA 同意后，你们都要完成。"
+  },
+  {
+    value: "for_partner",
+    title: "希望 TA 做",
+    desc: "等 TA 同意后，由 TA 来完成。"
+  }
+];
+
 Page({
   data: Object.assign({
     form: taskForm.getEmptyForm(),
+    kindOptions: TASK_KIND_OPTIONS,
+    selectedKind: "self",
     selectedLocationName: "",
     imageItems: [],
     isUploadingImage: false,
@@ -28,6 +48,12 @@ Page({
 
   onDescInput(event) {
     this.setData({ "form.desc": event.detail.value });
+  },
+
+  selectKind(event) {
+    const kind = event.currentTarget.dataset.kind;
+    if (!TASK_KIND_OPTIONS.some((item) => item.value === kind)) return;
+    this.setData({ selectedKind: kind });
   },
 
   setAppointmentSelection(index) {
@@ -122,31 +148,21 @@ Page({
   async create() {
     const { form } = this.data;
     if (!form.title.trim()) {
-      wx.showToast({ title: "请填写任务名称", icon: "none" });
+      wx.showToast({ title: "请填写约定名称", icon: "none" });
       return;
     }
 
     try {
-      await api.createTask({
+      const createdTask = await api.createTask({
         title: form.title.trim(),
         desc: form.desc.trim(),
         location: form.location,
         images: form.images,
-        imageUrl: form.images[0] || "",
+        kind: this.data.selectedKind,
         appointmentAt: taskForm.buildAppointmentAt(form.date, form.time)
       });
-      this.setData(Object.assign({
-        form: taskForm.getEmptyForm(),
-        selectedLocationName: "",
-        imageItems: [],
-        isUploadingImage: false
-      }, taskForm.getAppointmentData()));
-      wx.showToast({ title: "创建成功", icon: "success" });
-      wx.navigateBack({
-        fail() {
-          wx.redirectTo({ url: "/pages/index/index" });
-        }
-      });
+      wx.showToast({ title: "约定已创建", icon: "success" });
+      wx.redirectTo({ url: `/pages/task/detail?id=${createdTask._id}` });
     } catch (error) {
       wx.showToast({ title: error.message || "创建失败", icon: "none" });
     }

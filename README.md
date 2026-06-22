@@ -5,7 +5,7 @@
 
 ## 产品边界
 
-Mystwood 是一个双人亲密度空间：创建空间、邀请对方加入、创建和编辑任务、完成任务、把已完成或逾期任务沉淀为回忆。
+Mystwood 是一个双人亲密度空间：创建空间、邀请对方加入、发起三类约定、接受或婉拒约定、完成约定、把已完成或已婉拒的约定沉淀为回忆。
 
 已确认规则：
 
@@ -30,9 +30,10 @@ miniprogram/
   pages/index/index              # 首页/空间主页
   pages/space/create             # 创建空间
   pages/space/invite             # 邀请、分享、接受邀请
-  pages/task/create              # 创建任务
-  pages/task/detail              # 任务详情、编辑、完成、删除
-  pages/memory/list              # 回忆
+  pages/task/create              # 选择类型并创建约定
+  pages/task/detail              # 约定详情、回应、完成、删除、分享
+  pages/task/share               # 私密任务分享校验与跳转
+  pages/memory/list              # 已完成或已婉拒的约定
   pages/me/settings              # 设置/解绑
 cloudfunctions/
   space-service                  # 空间、邀请、状态聚合、同步长轮询
@@ -51,12 +52,13 @@ cloudfunctions/
 
 | 页面 | 主要能力 |
 | --- | --- |
-| `pages/index/index` | 展示空间状态、待完成任务、首张任务图；进入详情；右滑或点小标签露出删除；长轮询刷新 |
+| `pages/index/index` | 展示空间状态、进行中的约定和等待回应的约定；卡片显示类型与当前角色状态；长轮询刷新 |
 | `pages/space/create` | 创建空间 |
 | `pages/space/invite` | 邀请码、微信分享、接受邀请 |
-| `pages/task/create` | 创建任务，填写标题/描述/时间/地点，选择、压缩、上传、预览多张图片 |
-| `pages/task/detail` | 查看任务，编辑标题/描述/时间/地点/图片，预览大图，完成或删除任务 |
-| `pages/memory/list` | 展示 `completed` / `overdue` 任务 |
+| `pages/task/create` | 选择三类约定，填写标题/描述/时间/地点，选择、压缩、上传、预览多张图片 |
+| `pages/task/detail` | 查看约定，接受或婉拒，按角色完成，创建者删除，微信分享给 TA |
+| `pages/task/share` | 校验私密分享链接；无权访问时回首页并引导创建空间 |
+| `pages/memory/list` | 展示 `completed` / `declined` 约定 |
 | `pages/me/settings` | 修改空间名称、解绑空间 |
 
 当前页面注册在 `miniprogram/app.json`：
@@ -68,6 +70,7 @@ cloudfunctions/
   "pages/space/invite",
   "pages/task/create",
   "pages/task/detail",
+  "pages/task/share",
   "pages/memory/list",
   "pages/me/settings"
 ]
@@ -84,13 +87,13 @@ cloudfunctions/
 | `renameSpace(name)` | `space-service/renameSpace` | 修改空间名 |
 | `getInvite(inviteToken)` | `space-service/getInvite` | 查询公开邀请信息 |
 | `acceptInvite(inviteToken)` | `space-service/acceptInvite` | 接受邀请并激活空间 |
-| `dissolveSpace()` | `space-service/dissolveSpace` | 解绑空间并清空成员/任务 |
+| `dissolveSpace()` | `space-service/dissolveSpace` | 解绑空间并清空任务，保留同步投递所需成员标记 |
 | `waitSyncEvents(options)` | `space-service/waitSyncEvents` | 长轮询同步事件 |
-| `createTask(payload)` | `task-service/createTask` | 创建任务 |
-| `updateTask(id, payload)` | `task-service/updateTask` | 编辑标题、描述、地点、时间、图片 |
-| `addTaskImages(id, images)` | `task-service/addTaskImages` | 兼容单独追加图片的 action |
+| `createTask(payload)` | `task-service/createTask` | 创建约定 |
+| `respondTask(id, decision, note)` | `task-service/respondTask` | 指定 TA 接受或婉拒约定，可附一句回应 |
 | `completeTask(id)` | `task-service/completeTask` | 完成任务 |
-| `deleteTask(id)` | `task-service/deleteTask` | 删除任务，不进入回忆 |
+| `deleteTask(id)` | `task-service/deleteTask` | 仅创建者可物理删除约定及其归档 |
+| `resolveTaskShare(id, shareToken)` | `task-service/resolveTaskShare` | 校验私密分享链接，不返回任务内容 |
 
 云函数成功返回 `{ code: 0, data }`，错误返回 `{ code, message }`。
 
@@ -103,7 +106,7 @@ cloudfunctions/
 | `_id` | 云数据库文档 ID |
 | `name` | 空间名称 |
 | `status` | `pending` / `active` / `dissolved` |
-| `members` | 成员 OPENID 数组，当前产品限定 2 人 |
+| `members` | 成员 OPENID 数组，当前产品限定 2 人；解散后仅用于同步事件投递 |
 | `inviteToken` | 邀请码 |
 | `score` | 隐藏亲密分 |
 | `theme` | 当前主题对象 |
@@ -115,16 +118,22 @@ cloudfunctions/
 
 | 字段 | 说明 |
 | --- | --- |
-| `_id` | 任务 ID，云函数生成 |
-| `creator` | 创建人 OPENID |
-| `title` | 任务名称，必填 |
+| `_id` | 约定 ID，云函数生成 |
+| `creator` | 创建人 OPENID，仅云函数用于权限校验 |
+| `targetOpenid` | 需要回应的 TA OPENID，仅云函数用于权限校验 |
+| `participantOpenids` | 需要点击完成的成员 OPENID 数组，仅云函数使用 |
+| `completedOpenids` | 已完成成员 OPENID 数组，仅云函数使用 |
+| `kind` | `self`（自愿去做）/ `together`（邀请一起做）/ `for_partner`（希望 TA 做） |
+| `title` | 约定名称，必填 |
 | `desc` | 详细描述，选填 |
 | `location` | 结构化地点对象，可为空 |
 | `images` | 图片云存储 fileID 数组，最多 9 张 |
-| `imageUrl` | 首张图片 fileID，兼容历史单图数据 |
-| `appointmentAt` / `deadline` | 目标时间；`deadline` 仅兼容旧字段 |
-| `status` | `todo` / `completed` / `overdue` |
-| `createdAt` / `completedAt` | 创建/完成时间 |
+| `imageUrl` | 首张图片 fileID |
+| `appointmentAt` | 目标时间，可为空 |
+| `status` | `pending` / `active` / `completed` / `declined` |
+| `responseNote` / `responseAt` | TA 接受或婉拒时的可选回应与时间 |
+| `shareToken` | 私密微信分享链接校验 token，仅创建者客户端可读取 |
+| `createdAt` / `completedAt` | 创建/全部完成时间 |
 
 ### `spaces.tasks[].location`
 
@@ -139,8 +148,10 @@ cloudfunctions/
 - `INVITE_CONFIRMED`
 - `SPACE_UPDATED`
 - `TASK_CREATED`
-- `TASK_UPDATED`
-- `TASK_IMAGES_ADDED`
+- `TASK_PROPOSED`
+- `TASK_ACCEPTED`
+- `TASK_DECLINED`
+- `TASK_PARTICIPANT_COMPLETED`
 - `TASK_COMPLETED`
 - `TASK_DELETED`
 - `SPACE_DISSOLVED`
@@ -160,8 +171,8 @@ cloudfunctions/
 
 1. 新业务调用先加 `miniprogram/utils/api.js`。
 2. 页面不要直接散落 `wx.cloud.callFunction`。
-3. 云函数以 `cloud.getWXContext().OPENID` 判断当前用户，不能信任客户端传入的归属、安全字段或分数。
-4. 写任务前必须确认任务属于当前用户空间。
+3. 云函数以 `cloud.getWXContext().OPENID` 判断当前用户，不能信任客户端传入的归属、目标成员、完成进度、安全字段或分数。
+4. 写任务前必须确认任务属于当前用户空间，并在每次写入前校验当前状态和角色权限。
 5. 大文件走云存储，不通过 `callFunction` 传输。
 6. 改页面路由时同步检查 `miniprogram/app.json`。
 

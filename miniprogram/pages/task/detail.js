@@ -2,15 +2,8 @@
 
 const api = require("../../utils/api.js");
 const lbs = require("../../utils/lbs.js");
-const taskForm = require("../../utils/task-form.js");
 const taskImages = require("../../utils/task-images.js");
 const time = require("../../utils/time.js");
-
-function getStatusText(status) {
-  if (status === "completed") return "已完成";
-  if (status === "overdue") return "已逾期";
-  return "待完成";
-}
 
 function goBackHome() {
   wx.navigateBack({
@@ -20,28 +13,35 @@ function goBackHome() {
   });
 }
 
-function createEditState(task) {
-  const appointmentAt = task.appointmentAt || task.deadline;
-  const appointmentData = taskForm.getAppointmentData(appointmentAt);
-  const imageItems = taskImages.createImageItems(task.images, task.imageUrl);
+function getKindText(kind) {
+  if (kind === "together") return "邀请一起做";
+  if (kind === "for_partner") return "希望 TA 做";
+  return "自愿去做";
+}
 
-  return {
-    editForm: {
-      title: task.title || "",
-      desc: task.desc || "",
-      location: task.location || null,
-      images: imageItems.map((item) => item.fileID),
-      date: appointmentData.appointmentDate,
-      time: appointmentData.appointmentTime
-    },
-    editSelectedLocationName: lbs.getLocationName(task.location),
-    editImageItems: imageItems,
-    editAppointmentRange: appointmentData.appointmentRange,
-    editAppointmentDateLabels: appointmentData.appointmentDateLabels,
-    editAppointmentDateValues: appointmentData.appointmentDateValues,
-    editAppointmentIndex: appointmentData.appointmentIndex,
-    editAppointmentText: appointmentData.appointmentText
-  };
+function getStatusText(task) {
+  const permissions = task.permissions || {};
+  const completion = task.completion || {};
+
+  if (task.status === "completed") return "已完成";
+  if (task.status === "declined") return "已婉拒";
+  if (task.status === "pending") {
+    return permissions.canAccept ? "等待你的同意" : "等待 TA 同意";
+  }
+  if (task.kind === "self") {
+    return permissions.isCreator ? "正在进行" : "TA 的自愿约定";
+  }
+  if (task.kind === "together") {
+    if (completion.isMineCompleted) return "我已完成，等待 TA";
+    if (completion.isPartnerCompleted) return "TA 已完成，等你完成";
+    return "一起进行中";
+  }
+  return permissions.isCreator ? "等待 TA 完成" : "等你完成";
+}
+
+function getCompleteActionText(task) {
+  if (task.kind === "together") return "我已完成";
+  return "我完成了";
 }
 
 Page({
@@ -52,26 +52,25 @@ Page({
     appointmentText: "",
     createdText: "",
     completedText: "",
+    kindText: "",
     statusText: "",
+    completionText: "",
+    completeActionText: "我完成了",
+    responseText: "",
     taskImages: [],
     taskImageUrls: [],
-    isEditing: false,
-    editForm: taskForm.getEmptyForm(),
-    editSelectedLocationName: "",
-    editImageItems: [],
-    editAppointmentRange: [],
-    editAppointmentDateLabels: [],
-    editAppointmentDateValues: [],
-    editAppointmentIndex: [0, 10, 0],
-    editAppointmentText: "",
-    isUploadingImages: false,
-    isSavingEdit: false,
-    maxImageCount: taskImages.MAX_TASK_IMAGE_COUNT,
+    isResponding: false,
+    responseDecision: "",
+    responseNote: "",
+    isSubmittingResponse: false,
     isLoading: true
   },
 
   onLoad(options) {
     this.setData({ id: options && options.id ? options.id : "" });
+    if (wx.showShareMenu) {
+      wx.showShareMenu({ withShareTicket: true, menus: ["shareAppMessage"] });
+    }
   },
 
   async onShow() {
@@ -79,7 +78,6 @@ Page({
       this.consumeSkipNextShowRefresh();
       return;
     }
-    if (this.data.isEditing) return;
     await this.loadTask();
   },
 
@@ -106,22 +104,31 @@ Page({
 
   applyTask(task) {
     const taskImageUrls = taskImages.normalizeImageUrls(task.images, task.imageUrl);
+    const completion = task.completion || {};
     this.setData({
       task,
       locationTitle: lbs.getLocationName(task.location),
-      appointmentText: time.formatAppointmentTime(task.appointmentAt || task.deadline),
+      appointmentText: time.formatAppointmentTime(task.appointmentAt),
       createdText: time.formatAppointmentTime(task.createdAt, { emptyText: "" }),
       completedText: time.formatAppointmentTime(task.completedAt, { emptyText: "" }),
-      statusText: getStatusText(task.status),
+      kindText: getKindText(task.kind),
+      statusText: getStatusText(task),
+      completionText: completion.requiredCount > 1 ? `${completion.completedCount || 0} / ${completion.requiredCount} 人已完成` : "",
+      completeActionText: getCompleteActionText(task),
+      responseText: task.responseNote || "",
       taskImageUrls,
       taskImages: taskImageUrls.map((url) => ({ url })),
+      isResponding: false,
+      responseDecision: "",
+      responseNote: "",
+      isSubmittingResponse: false,
       isLoading: false
     });
   },
 
   async loadTask() {
     if (!this.data.id) {
-      wx.showToast({ title: "任务不存在", icon: "none" });
+      wx.showToast({ title: "约定不存在", icon: "none" });
       return;
     }
 
@@ -131,11 +138,10 @@ Page({
       const tasks = [...(state.tasks || []), ...(state.memories || [])];
       const task = tasks.find((item) => item && item._id === this.data.id);
       if (!task) {
-        wx.showToast({ title: "任务不存在", icon: "none" });
+        wx.showToast({ title: "约定不存在", icon: "none" });
         goBackHome();
         return;
       }
-
       this.applyTask(task);
     } catch (error) {
       this.setData({ isLoading: false });
@@ -155,168 +161,79 @@ Page({
     taskImages.previewImages(this.data.taskImageUrls, index);
   },
 
-  enterEdit() {
-    if (!this.data.task) return;
+  startResponse(event) {
+    const decision = event.currentTarget.dataset.decision;
+    if (decision !== "accept" && decision !== "decline") return;
     this.setData({
-      isEditing: true,
-      ...createEditState(this.data.task)
+      isResponding: true,
+      responseDecision: decision,
+      responseNote: ""
     });
   },
 
-  cancelEdit() {
+  cancelResponse() {
     this.setData({
-      isEditing: false,
-      isUploadingImages: false,
-      isSavingEdit: false
+      isResponding: false,
+      responseDecision: "",
+      responseNote: ""
     });
   },
 
-  onEditTitleInput(event) {
-    this.setData({ "editForm.title": event.detail.value });
+  onResponseNoteInput(event) {
+    this.setData({ responseNote: event.detail.value });
   },
 
-  onEditDescInput(event) {
-    this.setData({ "editForm.desc": event.detail.value });
-  },
-
-  setEditAppointmentSelection(index) {
-    const appointment = taskForm.getAppointmentSelection(
-      this.data.editAppointmentDateValues,
-      this.data.editAppointmentDateLabels,
-      index
-    );
-    this.setData({
-      editAppointmentIndex: index,
-      editAppointmentText: appointment.text,
-      "editForm.date": appointment.date,
-      "editForm.time": appointment.time
-    });
-  },
-
-  onEditAppointmentPick(event) {
-    this.setEditAppointmentSelection(event.detail.value);
-  },
-
-  async chooseEditLocation() {
+  async submitResponse() {
+    if (!this.data.task || this.data.isSubmittingResponse || !this.data.responseDecision) return;
     try {
-      const selectedLocation = await taskForm.chooseTaskLocation(this.data.editForm.location);
-      this.setData({
-        "editForm.location": selectedLocation,
-        editSelectedLocationName: lbs.getLocationName(selectedLocation)
+      this.setData({ isSubmittingResponse: true });
+      const task = await api.respondTask(
+        this.data.task._id,
+        this.data.responseDecision,
+        this.data.responseNote.trim()
+      );
+      this.applyTask(task);
+      wx.showToast({
+        title: task.status === "declined" ? "已婉拒" : "已同意，约定开始",
+        icon: "success"
       });
     } catch (error) {
-      if (!taskImages.isCancelError(error)) {
-        wx.showToast({ title: error.message || "地图打开失败", icon: "none" });
-      }
-    }
-  },
-
-  async chooseEditImage() {
-    if (this.data.isUploadingImages) return;
-    const remainingCount = taskImages.MAX_TASK_IMAGE_COUNT - this.data.editImageItems.length;
-    if (remainingCount <= 0) {
-      wx.showToast({ title: `最多上传 ${taskImages.MAX_TASK_IMAGE_COUNT} 张图片`, icon: "none" });
-      return;
-    }
-
-    const previousImages = this.data.editForm.images;
-    const previousImageItems = this.data.editImageItems;
-    let didShowLoading = false;
-
-    try {
-      const filePaths = await taskImages.chooseAndCompressImages({ count: remainingCount });
-      if (filePaths.length === 0) return;
-
-      this.setData({ isUploadingImages: true });
-      wx.showLoading({ title: "上传中", mask: true });
-      didShowLoading = true;
-
-      const fileIDs = await taskImages.uploadImages(filePaths);
-      const nextItems = previousImageItems
-        .concat(fileIDs.map((fileID, index) => ({
-          fileID,
-          previewUrl: filePaths[index] || fileID
-        })))
-        .slice(0, taskImages.MAX_TASK_IMAGE_COUNT);
-
-      this.setData({
-        "editForm.images": nextItems.map((item) => item.fileID),
-        editImageItems: nextItems
-      });
-    } catch (error) {
-      if (!taskImages.isCancelError(error)) {
-        this.setData({
-          "editForm.images": previousImages,
-          editImageItems: previousImageItems
-        });
-        wx.showToast({ title: error.message || "图片上传失败", icon: "none" });
-      }
-    } finally {
-      this.setData({ isUploadingImages: false });
-      if (didShowLoading) wx.hideLoading();
-    }
-  },
-
-  previewEditImage(event) {
-    const index = Number(event.currentTarget.dataset.index);
-    const urls = this.data.editImageItems.map((item) => item.previewUrl || item.fileID);
-    this.markSkipNextShowRefresh();
-    taskImages.previewImages(urls, index);
-  },
-
-  removeEditImage(event) {
-    const index = Number(event.currentTarget.dataset.index);
-    const editImageItems = this.data.editImageItems.filter((item, itemIndex) => item && itemIndex !== index);
-    this.setData({
-      editImageItems,
-      "editForm.images": editImageItems.map((item) => item.fileID)
-    });
-  },
-
-  async saveEdit() {
-    if (!this.data.task || this.data.isSavingEdit) return;
-    const { editForm } = this.data;
-    if (!editForm.title.trim()) {
-      wx.showToast({ title: "请填写任务名称", icon: "none" });
-      return;
-    }
-
-    try {
-      this.setData({ isSavingEdit: true });
-      const updatedTask = await api.updateTask(this.data.task._id, {
-        title: editForm.title.trim(),
-        desc: editForm.desc.trim(),
-        location: editForm.location,
-        images: editForm.images,
-        imageUrl: editForm.images[0] || "",
-        appointmentAt: taskForm.buildAppointmentAt(editForm.date, editForm.time)
-      });
-      this.applyTask(updatedTask);
-      this.setData({ isEditing: false, isSavingEdit: false });
-      wx.showToast({ title: "已保存", icon: "success" });
-    } catch (error) {
-      this.setData({ isSavingEdit: false });
-      wx.showToast({ title: error.message || "保存失败", icon: "none" });
+      this.setData({ isSubmittingResponse: false });
+      wx.showToast({ title: error.message || "操作失败", icon: "none" });
     }
   },
 
   async completeTask() {
-    if (!this.data.task || this.data.task.status !== "todo") return;
+    if (!this.data.task || !(this.data.task.permissions || {}).canComplete) return;
+    const modal = await new Promise((resolve) => {
+      wx.showModal({
+        title: "确认完成",
+        content: "确定已经完成这份约定了吗？",
+        confirmText: "完成",
+        success: resolve,
+        fail: () => resolve({ confirm: false })
+      });
+    });
+    if (!modal.confirm) return;
+
     try {
-      await api.completeTask(this.data.task._id);
-      wx.showToast({ title: "已完成", icon: "success" });
-      goBackHome();
+      const task = await api.completeTask(this.data.task._id);
+      this.applyTask(task);
+      wx.showToast({
+        title: task.status === "completed" ? "约定已完成" : "已记录你的完成",
+        icon: "success"
+      });
     } catch (error) {
       wx.showToast({ title: error.message || "操作失败", icon: "none" });
     }
   },
 
   async deleteTask() {
-    if (!this.data.task) return;
+    if (!this.data.task || !(this.data.task.permissions || {}).canDelete) return;
     const modal = await new Promise((resolve) => {
       wx.showModal({
-        title: "删除任务",
-        content: "删除后不会进入回忆，确定删除吗？",
+        title: "删除约定",
+        content: "删除后会同时从任务和回忆中移除，确定删除吗？",
         confirmText: "删除",
         confirmColor: "#e03e3e",
         success: resolve,
@@ -332,5 +249,17 @@ Page({
     } catch (error) {
       wx.showToast({ title: error.message || "删除失败", icon: "none" });
     }
+  },
+
+  onShareAppMessage() {
+    const task = this.data.task || {};
+    const permissions = task.permissions || {};
+    if (!permissions.canShare || !task.shareToken) {
+      return { title: "来创建属于你们的双人空间", path: "/pages/index/index" };
+    }
+    return {
+      title: "我想和你约定一件事",
+      path: `/pages/task/share?id=${encodeURIComponent(task._id)}&shareToken=${encodeURIComponent(task.shareToken)}`
+    };
   }
 });

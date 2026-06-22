@@ -7,102 +7,83 @@
     <view class="detail-header">
       <view>
         <view class="detail-title">{{task.title}}</view>
-        <view class="detail-status">{{statusText}}</view>
+        <view class="detail-badges">
+          <view class="detail-kind">{{kindText}}</view>
+          <view class="detail-status">{{statusText}}</view>
+        </view>
       </view>
-      <button wx:if="{{!isEditing}}" class="detail-edit-button" bindtap="enterEdit">编辑</button>
     </view>
 
-    <block wx:if="{{isEditing}}">
-      <view class="edit-form">
-        <input class="field title-field" placeholder="任务名称" value="{{editForm.title}}" maxlength="40" bindinput="onEditTitleInput" />
-        <textarea class="field description-field" placeholder="详细描述（选填）" value="{{editForm.desc}}" maxlength="240" show-confirm-bar="{{false}}" bindinput="onEditDescInput" />
+    <view wx:if="{{responseText}}" class="response-card">
+      <view class="detail-label">TA 的回应</view>
+      <view class="detail-value">{{responseText}}</view>
+    </view>
 
-        <view class="meta-stack">
-          <view class="meta-field location-picker {{editSelectedLocationName ? 'location-picked' : ''}}" bindtap="chooseEditLocation">
-            <view class="location-icon"></view>
-            <view class="meta-text">{{editSelectedLocationName || "选择地点"}}</view>
-          </view>
-          <picker class="meta-picker" mode="multiSelector" range="{{editAppointmentRange}}" value="{{editAppointmentIndex}}" bindchange="onEditAppointmentPick">
-            <view class="meta-field appointment-picker {{editAppointmentText ? 'appointment-picked' : ''}}">
-              <view class="clock-icon"></view>
-              <view class="meta-text">{{editAppointmentText || "目标时间"}}</view>
-            </view>
-          </picker>
-        </view>
+    <view class="detail-section">
+      <view class="detail-label">详细描述</view>
+      <view class="detail-value">{{task.desc || "未填写"}}</view>
+    </view>
 
-        <view class="image-grid">
-          <view
-            wx:for="{{editImageItems}}"
-            wx:key="fileID"
-            class="image-thumb"
-            data-index="{{index}}"
-            bindtap="previewEditImage"
-          >
-            <image class="image-preview" src="{{item.previewUrl}}" mode="aspectFill"></image>
-            <view class="image-remove" data-index="{{index}}" catchtap="removeEditImage"></view>
-          </view>
+    <view class="detail-section">
+      <view class="detail-label">目标时间</view>
+      <view class="detail-value">{{appointmentText || "未约定"}}</view>
+    </view>
 
-          <view wx:if="{{editImageItems.length < maxImageCount}}" class="image-upload {{isUploadingImages ? 'image-upload-disabled' : ''}}" bindtap="chooseEditImage">
-            <view class="upload-plus"></view>
-            <view class="upload-text">{{isUploadingImages ? "上传中" : "上传图片"}}</view>
-          </view>
-        </view>
+    <view class="detail-section">
+      <view class="detail-label">地点</view>
+      <view wx:if="{{locationTitle}}" class="detail-link" bindtap="openLocation">{{locationTitle}}</view>
+      <view wx:else class="detail-value">未选择</view>
+    </view>
+
+    <view class="detail-section">
+      <view class="detail-label">图片</view>
+      <view wx:if="{{taskImages.length}}" class="detail-image-grid">
+        <image
+          wx:for="{{taskImages}}"
+          wx:key="url"
+          class="detail-image"
+          src="{{item.url}}"
+          mode="aspectFill"
+          data-index="{{index}}"
+          bindtap="previewImage"
+        ></image>
       </view>
+      <view wx:else class="detail-empty-image">还没有图片</view>
+    </view>
 
+    <view wx:if="{{completionText}}" class="detail-section compact">
+      <view class="detail-label">完成进度</view>
+      <view class="detail-value">{{completionText}}</view>
+    </view>
+
+    <view class="detail-grid">
+      <view class="detail-section compact">
+        <view class="detail-label">创建时间</view>
+        <view class="detail-value">{{createdText || "未知"}}</view>
+      </view>
+      <view wx:if="{{completedText}}" class="detail-section compact">
+        <view class="detail-label">完成时间</view>
+        <view class="detail-value">{{completedText}}</view>
+      </view>
+    </view>
+
+    <view wx:if="{{isResponding}}" class="response-form">
+      <view class="response-title">{{responseDecision === 'accept' ? "留一句回应（选填）" : "想对 TA 说什么（选填）"}}</view>
+      <textarea class="response-input" maxlength="120" placeholder="写下你的想法" value="{{responseNote}}" show-confirm-bar="{{false}}" bindinput="onResponseNoteInput"></textarea>
       <view class="action-panel">
-        <button class="action-button" bindtap="cancelEdit">取消</button>
-        <button class="btn-primary action-button" bindtap="saveEdit">{{isSavingEdit ? "保存中" : "保存"}}</button>
+        <button class="action-button" bindtap="cancelResponse">取消</button>
+        <button class="btn-primary action-button" bindtap="submitResponse">{{isSubmittingResponse ? "提交中" : "确认"}}</button>
       </view>
-    </block>
+    </view>
 
-    <block wx:else>
-      <view class="detail-section">
-        <view class="detail-label">详细描述</view>
-        <view class="detail-value">{{task.desc || "未填写"}}</view>
+    <view wx:else class="action-stack">
+      <view wx:if="{{task.permissions.canAccept}}" class="action-panel">
+        <button class="action-button" bindtap="startResponse" data-decision="decline">婉拒</button>
+        <button class="btn-primary action-button" bindtap="startResponse" data-decision="accept">同意并开始</button>
       </view>
-
-      <view class="detail-section">
-        <view class="detail-label">目标时间</view>
-        <view class="detail-value">{{appointmentText}}</view>
-      </view>
-
-      <view class="detail-section">
-        <view class="detail-label">地点</view>
-        <view wx:if="{{locationTitle}}" class="detail-link" bindtap="openLocation">{{locationTitle}}</view>
-        <view wx:else class="detail-value">未选择</view>
-      </view>
-
-      <view class="detail-section">
-        <view class="detail-label">图片</view>
-        <view wx:if="{{taskImages.length}}" class="detail-image-grid">
-          <image
-            wx:for="{{taskImages}}"
-            wx:key="url"
-            class="detail-image"
-            src="{{item.url}}"
-            mode="aspectFill"
-            data-index="{{index}}"
-            bindtap="previewImage"
-          ></image>
-        </view>
-        <view wx:else class="detail-empty-image">还没有图片</view>
-      </view>
-
-      <view class="detail-grid">
-        <view class="detail-section compact">
-          <view class="detail-label">创建时间</view>
-          <view class="detail-value">{{createdText || "未知"}}</view>
-        </view>
-        <view wx:if="{{completedText}}" class="detail-section compact">
-          <view class="detail-label">完成时间</view>
-          <view class="detail-value">{{completedText}}</view>
-        </view>
-      </view>
-
-      <view class="action-panel">
-        <button wx:if="{{task.status === 'todo'}}" class="btn-primary action-button" bindtap="completeTask">完成任务</button>
-        <button class="danger-button action-button" bindtap="deleteTask">删除任务</button>
-      </view>
-    </block>
+      <button wx:if="{{task.permissions.canComplete}}" class="btn-primary action-button full-action" bindtap="completeTask">{{completeActionText}}</button>
+      <button wx:if="{{task.permissions.canShare}}" class="action-button full-action" open-type="share">微信分享给 TA</button>
+      <button wx:if="{{task.permissions.canDelete}}" class="danger-button action-button full-action" bindtap="deleteTask">删除约定</button>
+    </view>
   </view>
 </view>
