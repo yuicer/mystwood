@@ -27,12 +27,14 @@ const SYNC_EVENT_TYPES = {
   TASK_DECLINED: 'TASK_DECLINED',
   TASK_PARTICIPANT_COMPLETED: 'TASK_PARTICIPANT_COMPLETED',
   TASK_COMPLETED: 'TASK_COMPLETED',
-  TASK_DELETED: 'TASK_DELETED'
+  TASK_DELETED: 'TASK_DELETED',
+  TASK_REPLIED: 'TASK_REPLIED'
 }
 
 const LOCATION_SOURCES = ['wx-choose-location', 'qqmap-poi', 'qqmap-center']
 const MAX_TASK_IMAGE_COUNT = 9
 const MAX_RESPONSE_NOTE_LENGTH = 120
+const MAX_REPLY_TEXT_LENGTH = 500
 
 function getUniqueOpenids(openids) {
   return Array.from(new Set((openids || []).filter(openid => typeof openid === 'string' && openid)))
@@ -135,6 +137,10 @@ function createShareToken() {
   return `share_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
 }
 
+function createReplyId() {
+  return `reply_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
 function createSyncChange(space, { type, actor, targetOpenids, entityType, entityId, payload }) {
   const targets = getUniqueOpenids(targetOpenids).filter(openid => openid !== actor)
   if (!space || !type || !actor || targets.length === 0) return null
@@ -173,6 +179,27 @@ function getCompletedOpenids(task) {
   return getUniqueOpenids(task && task.completedOpenids).filter(openid => participants.includes(openid))
 }
 
+
+function toClientReplies(replies, openid) {
+  if (!Array.isArray(replies)) return []
+  return replies
+    .filter(reply => reply && reply._id)
+    .map(reply => {
+      const images = normalizeTaskImages(reply.images)
+      const isMine = reply.author === openid
+      return {
+        _id: reply._id,
+        text: reply.text || '',
+        images,
+        imageUrl: images[0] || '',
+        createdAt: reply.createdAt || null,
+        isMine,
+        authorLabel: isMine ? '我' : 'TA',
+        avatarUrl: ''
+      }
+    })
+}
+
 function toClientTask(task, openid) {
   const location = toClientLocation(task.location)
   const appointmentAt = task.appointmentAt || null
@@ -200,6 +227,7 @@ function toClientTask(task, openid) {
     responseAt: task.responseAt || null,
     createdAt: task.createdAt,
     completedAt: task.completedAt || null,
+    replies: toClientReplies(task.replies, openid),
     completion: {
       requiredCount: participants.length,
       completedCount: completedOpenids.length,
@@ -285,7 +313,8 @@ exports.main = async (event) => {
           responseAt: null,
           shareToken: createShareToken(),
           createdAt: Date.now(),
-          completedAt: null
+          completedAt: null,
+          replies: []
         }
         const eventType = kind === TASK_KIND.SELF ? SYNC_EVENT_TYPES.TASK_CREATED : SYNC_EVENT_TYPES.TASK_PROPOSED
         const change = createSyncChange(space, {
@@ -380,6 +409,55 @@ exports.main = async (event) => {
             kind: task.kind,
             completedCount: nextCompletedOpenids.length,
             requiredCount: participants.length
+          }
+        })
+        const sync = appendSyncChange(space, change)
+
+        await db.collection('spaces').doc(space._id).update({ data: { tasks: updatedTasks, sync } })
+        return { code: 0, data: toClientTask(updatedTask, wxContext.OPENID) }
+      }
+      case 'addTaskReply': {
+        if (!id) return { code: 400, message: '约定不存在' }
+
+        const text = toText(payload && payload.text, MAX_REPLY_TEXT_LENGTH)
+        const images = normalizeTaskImages(payload && payload.images)
+        if (!text && images.length === 0) return { code: 400, message: '写点文字或选张图片吧' }
+
+        const spaceResult = await getActiveSpace(wxContext.OPENID)
+        if (spaceResult.response) return spaceResult.response
+        const space = spaceResult.space
+        const members = getUniqueOpenids(space.members || [])
+        if (!members.includes(wxContext.OPENID)) return { code: 403, message: '只有空间成员可以回复' }
+
+        const tasks = space.tasks || []
+        const taskIndex = tasks.findIndex(task => task && task._id === id)
+        if (taskIndex < 0) return { code: 404, message: '约定不存在' }
+
+        const task = tasks[taskIndex]
+        const now = Date.now()
+        const reply = {
+          _id: createReplyId(),
+          author: wxContext.OPENID,
+          text,
+          images,
+          createdAt: now
+        }
+        const updatedTask = {
+          ...task,
+          replies: [...(Array.isArray(task.replies) ? task.replies : []), reply]
+        }
+        const updatedTasks = tasks.map((row, index) => index === taskIndex ? updatedTask : row)
+        const change = createSyncChange(space, {
+          type: SYNC_EVENT_TYPES.TASK_REPLIED,
+          actor: wxContext.OPENID,
+          targetOpenids: members,
+          entityType: 'task',
+          entityId: id,
+          payload: {
+            title: task.title || '',
+            replyId: reply._id,
+            hasText: !!text,
+            hasImages: images.length > 0
           }
         })
         const sync = appendSyncChange(space, change)

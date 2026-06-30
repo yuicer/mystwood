@@ -1,89 +1,143 @@
-<view class="page-wrap">
+<view class="page-wrap letter-page">
   <view wx:if="{{isLoading}}" class="card loading-card">
     <view class="loading-spinner"></view>
   </view>
 
-  <view wx:elif="{{task}}" class="card detail-card">
-    <view class="detail-header">
-      <view>
+  <view wx:elif="{{task}}" class="detail-shell">
+    <view class="card letter-card detail-card">
+      <view class="letter-stamp {{task.status === 'completed' ? 'done' : ''}} {{task.status === 'declined' ? 'declined' : ''}}">
+        {{task.status === 'completed' ? '已盖戳' : (task.status === 'declined' ? '已婉拒' : statusText)}}
+      </view>
+
+      <view class="letter-header">
+        <view class="letter-label">Mystwood Mail</view>
         <view class="detail-title">{{task.title}}</view>
         <view class="detail-badges">
           <view class="detail-kind">{{kindText}}</view>
           <view class="detail-status">{{statusText}}</view>
         </view>
       </view>
-    </view>
 
-    <view wx:if="{{responseText}}" class="response-card">
-      <view class="detail-label">TA 的回应</view>
-      <view class="detail-value">{{responseText}}</view>
-    </view>
-
-    <view class="detail-section">
-      <view class="detail-label">详细描述</view>
-      <view class="detail-value">{{task.desc || "未填写"}}</view>
-    </view>
-
-    <view class="detail-section">
-      <view class="detail-label">目标时间</view>
-      <view class="detail-value">{{appointmentText || "未约定"}}</view>
-    </view>
-
-    <view class="detail-section">
-      <view class="detail-label">地点</view>
-      <view wx:if="{{locationTitle}}" class="detail-link" bindtap="openLocation">{{locationTitle}}</view>
-      <view wx:else class="detail-value">未选择</view>
-    </view>
-
-    <view class="detail-section">
-      <view class="detail-label">图片</view>
-      <view wx:if="{{taskImages.length}}" class="detail-image-grid">
-        <image
-          wx:for="{{taskImages}}"
-          wx:key="url"
-          class="detail-image"
-          src="{{item.url}}"
-          mode="aspectFill"
-          data-index="{{index}}"
-          bindtap="previewImage"
-        ></image>
+      <view wx:if="{{responseText}}" class="response-card">
+        <view class="detail-label">TA 的回应</view>
+        <view class="detail-value">{{responseText}}</view>
       </view>
-      <view wx:else class="detail-empty-image">还没有图片</view>
+
+      <view class="letter-body">
+        <view class="detail-section">
+          <view class="detail-label">正文</view>
+          <view class="detail-value letter-copy">{{task.desc || "这封信没有写正文，只留下了一个约定。"}}</view>
+        </view>
+
+        <view class="detail-grid meta-grid">
+          <view class="detail-section compact">
+            <view class="detail-label">目标时间</view>
+            <view class="detail-value">{{appointmentText || "未约定"}}</view>
+          </view>
+          <view class="detail-section compact">
+            <view class="detail-label">地点</view>
+            <view wx:if="{{locationTitle}}" class="detail-link" bindtap="openLocation">{{locationTitle}}</view>
+            <view wx:else class="detail-value">未选择</view>
+          </view>
+        </view>
+
+        <view class="detail-section">
+          <view class="detail-label">随信附件</view>
+          <view wx:if="{{taskImages.length}}" class="detail-image-grid readonly-image-grid">
+            <image
+              wx:for="{{taskImages}}"
+              wx:key="url"
+              class="detail-image"
+              src="{{item.url}}"
+              mode="aspectFill"
+              data-index="{{index}}"
+              bindtap="previewImage"
+            ></image>
+          </view>
+          <view wx:else class="detail-empty-image">还没有图片附件</view>
+        </view>
+
+        <view wx:if="{{completionText}}" class="detail-section compact">
+          <view class="detail-label">完成进度</view>
+          <view class="detail-value">{{completionText}}</view>
+        </view>
+
+        <view class="detail-grid meta-grid">
+          <view class="detail-section compact">
+            <view class="detail-label">创建时间</view>
+            <view class="detail-value">{{createdText || "未知"}}</view>
+          </view>
+          <view wx:if="{{completedText}}" class="detail-section compact">
+            <view class="detail-label">完成时间</view>
+            <view class="detail-value">{{completedText}}</view>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{isResponding}}" class="response-form">
+        <view class="response-title">{{responseDecision === 'accept' ? "留一句回应（选填）" : "想对 TA 说什么（选填）"}}</view>
+        <textarea class="response-input" maxlength="120" placeholder="写下你的想法" value="{{responseNote}}" show-confirm-bar="{{false}}" bindinput="onResponseNoteInput"></textarea>
+        <view class="action-panel">
+          <button class="action-button" bindtap="cancelResponse">取消</button>
+          <button class="btn-primary action-button" bindtap="submitResponse">{{isSubmittingResponse ? "提交中" : "确认"}}</button>
+        </view>
+      </view>
+
+      <view wx:else class="action-stack">
+        <view wx:if="{{task.permissions.canAccept}}" class="action-panel">
+          <button class="action-button" bindtap="startResponse" data-decision="decline">婉拒</button>
+          <button class="btn-primary action-button" bindtap="startResponse" data-decision="accept">同意并开始</button>
+        </view>
+        <button wx:if="{{task.permissions.canComplete}}" class="btn-primary action-button full-action" bindtap="completeTask">{{completeActionText}}</button>
+        <button wx:if="{{task.permissions.canShare}}" class="action-button full-action" open-type="share">微信分享给 TA</button>
+        <button wx:if="{{task.permissions.canDelete}}" class="danger-button action-button full-action" bindtap="deleteTask">删除约定</button>
+      </view>
     </view>
 
-    <view wx:if="{{completionText}}" class="detail-section compact">
-      <view class="detail-label">完成进度</view>
-      <view class="detail-value">{{completionText}}</view>
-    </view>
+    <view class="card chat-card">
+      <view class="chat-title-row">
+        <view class="section-title">回信</view>
+        <view class="hint">完成后也可以继续聊天、吐槽、留影</view>
+      </view>
 
-    <view class="detail-grid">
-      <view class="detail-section compact">
-        <view class="detail-label">创建时间</view>
-        <view class="detail-value">{{createdText || "未知"}}</view>
+      <view wx:if="{{replies.length === 0}}" class="chat-empty">还没有回信，先写一句吧。</view>
+      <view wx:else class="chat-list">
+        <view wx:for="{{replies}}" wx:for-item="reply" wx:for-index="replyIndex" wx:key="_id" class="reply-row {{reply.isMine ? 'mine' : 'partner'}}">
+          <view class="reply-avatar">{{reply.authorLabel}}</view>
+          <view class="reply-content">
+            <view class="reply-meta">{{reply.authorLabel}} {{reply.timeText}}</view>
+            <view wx:if="{{reply.text}}" class="reply-bubble">{{reply.text}}</view>
+            <view wx:if="{{reply.imageItems.length}}" class="reply-image-grid">
+              <image
+                wx:for="{{reply.imageItems}}"
+                wx:for-item="image"
+                wx:for-index="imageIndex"
+                wx:key="url"
+                class="reply-image"
+                src="{{image.url}}"
+                mode="aspectFill"
+                data-reply-index="{{replyIndex}}"
+                data-image-index="{{imageIndex}}"
+                catchtap="previewReplyImage"
+              ></image>
+            </view>
+          </view>
+        </view>
       </view>
-      <view wx:if="{{completedText}}" class="detail-section compact">
-        <view class="detail-label">完成时间</view>
-        <view class="detail-value">{{completedText}}</view>
-      </view>
-    </view>
 
-    <view wx:if="{{isResponding}}" class="response-form">
-      <view class="response-title">{{responseDecision === 'accept' ? "留一句回应（选填）" : "想对 TA 说什么（选填）"}}</view>
-      <textarea class="response-input" maxlength="120" placeholder="写下你的想法" value="{{responseNote}}" show-confirm-bar="{{false}}" bindinput="onResponseNoteInput"></textarea>
-      <view class="action-panel">
-        <button class="action-button" bindtap="cancelResponse">取消</button>
-        <button class="btn-primary action-button" bindtap="submitResponse">{{isSubmittingResponse ? "提交中" : "确认"}}</button>
+      <view class="reply-composer">
+        <textarea class="reply-input" maxlength="500" placeholder="写一封回信..." value="{{replyText}}" show-confirm-bar="{{false}}" bindinput="onReplyInput"></textarea>
+        <view wx:if="{{replyImageItems.length}}" class="reply-draft-grid">
+          <view wx:for="{{replyImageItems}}" wx:key="fileID" class="reply-draft-item">
+            <image class="reply-draft-image" src="{{item.previewUrl || item.fileID}}" mode="aspectFill" data-index="{{index}}" bindtap="previewReplyDraftImage"></image>
+            <view class="reply-draft-remove" data-index="{{index}}" catchtap="removeReplyImage">×</view>
+          </view>
+        </view>
+        <view class="reply-toolbar">
+          <button class="reply-tool-button" bindtap="chooseReplyImage">{{isUploadingReplyImage ? "上传中" : "+ 图片"}}</button>
+          <button class="btn-primary reply-send-button" bindtap="submitReply">{{isSubmittingReply ? "发送中" : "发送"}}</button>
+        </view>
       </view>
-    </view>
-
-    <view wx:else class="action-stack">
-      <view wx:if="{{task.permissions.canAccept}}" class="action-panel">
-        <button class="action-button" bindtap="startResponse" data-decision="decline">婉拒</button>
-        <button class="btn-primary action-button" bindtap="startResponse" data-decision="accept">同意并开始</button>
-      </view>
-      <button wx:if="{{task.permissions.canComplete}}" class="btn-primary action-button full-action" bindtap="completeTask">{{completeActionText}}</button>
-      <button wx:if="{{task.permissions.canShare}}" class="action-button full-action" open-type="share">微信分享给 TA</button>
-      <button wx:if="{{task.permissions.canDelete}}" class="danger-button action-button full-action" bindtap="deleteTask">删除约定</button>
     </view>
   </view>
 </view>

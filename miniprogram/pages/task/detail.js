@@ -44,6 +44,10 @@ function getCompleteActionText(task) {
   return "我完成了";
 }
 
+function formatReplyTime(value) {
+  return time.formatAppointmentTime(value, { emptyText: "" });
+}
+
 Page({
   data: {
     id: "",
@@ -59,6 +63,13 @@ Page({
     responseText: "",
     taskImages: [],
     taskImageUrls: [],
+    replies: [],
+    replyText: "",
+    replyImageItems: [],
+    replyImageUrls: [],
+    isUploadingReplyImage: false,
+    isSubmittingReply: false,
+    maxReplyImageCount: taskImages.MAX_TASK_IMAGE_COUNT,
     isResponding: false,
     responseDecision: "",
     responseNote: "",
@@ -105,6 +116,15 @@ Page({
   applyTask(task) {
     const taskImageUrls = taskImages.normalizeImageUrls(task.images, task.imageUrl);
     const completion = task.completion || {};
+    const replies = (task.replies || []).map((reply) => {
+      const replyImageUrls = taskImages.normalizeImageUrls(reply.images, reply.imageUrl);
+      return {
+        ...reply,
+        imageUrls: replyImageUrls,
+        imageItems: replyImageUrls.map((url) => ({ url })),
+        timeText: formatReplyTime(reply.createdAt)
+      };
+    });
     this.setData({
       task,
       locationTitle: lbs.getLocationName(task.location),
@@ -118,6 +138,7 @@ Page({
       responseText: task.responseNote || "",
       taskImageUrls,
       taskImages: taskImageUrls.map((url) => ({ url })),
+      replies,
       isResponding: false,
       responseDecision: "",
       responseNote: "",
@@ -159,6 +180,103 @@ Page({
     const index = Number(event.currentTarget.dataset.index);
     this.markSkipNextShowRefresh();
     taskImages.previewImages(this.data.taskImageUrls, index);
+  },
+
+  onReplyInput(event) {
+    this.setData({ replyText: event.detail.value });
+  },
+
+  async chooseReplyImage() {
+    if (this.data.isUploadingReplyImage) return;
+    const remainingCount = taskImages.MAX_TASK_IMAGE_COUNT - this.data.replyImageItems.length;
+    if (remainingCount <= 0) {
+      wx.showToast({ title: `最多上传 ${taskImages.MAX_TASK_IMAGE_COUNT} 张图片`, icon: "none" });
+      return;
+    }
+
+    const previousImageItems = this.data.replyImageItems;
+    let didShowLoading = false;
+
+    try {
+      const filePaths = await taskImages.chooseAndCompressImages({ count: remainingCount });
+      if (filePaths.length === 0) return;
+
+      this.setData({ isUploadingReplyImage: true });
+      wx.showLoading({ title: "上传中", mask: true });
+      didShowLoading = true;
+
+      const fileIDs = await taskImages.uploadImages(filePaths);
+      const nextItems = previousImageItems
+        .concat(fileIDs.map((fileID, index) => ({
+          fileID,
+          previewUrl: filePaths[index] || fileID
+        })))
+        .slice(0, taskImages.MAX_TASK_IMAGE_COUNT);
+      this.setData({
+        replyImageItems: nextItems,
+        replyImageUrls: nextItems.map((item) => item.previewUrl || item.fileID)
+      });
+    } catch (error) {
+      if (!taskImages.isCancelError(error)) {
+        this.setData({
+          replyImageItems: previousImageItems,
+          replyImageUrls: previousImageItems.map((item) => item.previewUrl || item.fileID)
+        });
+        wx.showToast({ title: error.message || "图片上传失败", icon: "none" });
+      }
+    } finally {
+      this.setData({ isUploadingReplyImage: false });
+      if (didShowLoading) wx.hideLoading();
+    }
+  },
+
+  removeReplyImage(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    const replyImageItems = this.data.replyImageItems.filter((item, itemIndex) => item && itemIndex !== index);
+    this.setData({
+      replyImageItems,
+      replyImageUrls: replyImageItems.map((item) => item.previewUrl || item.fileID)
+    });
+  },
+
+  previewReplyDraftImage(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    taskImages.previewImages(this.data.replyImageUrls, index);
+  },
+
+  previewReplyImage(event) {
+    const replyIndex = Number(event.currentTarget.dataset.replyIndex);
+    const imageIndex = Number(event.currentTarget.dataset.imageIndex);
+    const reply = this.data.replies[replyIndex];
+    if (!reply) return;
+    this.markSkipNextShowRefresh();
+    taskImages.previewImages(reply.imageUrls, imageIndex);
+  },
+
+  async submitReply() {
+    if (!this.data.task || this.data.isSubmittingReply) return;
+    const text = this.data.replyText.trim();
+    const images = this.data.replyImageItems.map((item) => item.fileID).filter(Boolean);
+    if (!text && images.length === 0) {
+      wx.showToast({ title: "写点文字或选张图片吧", icon: "none" });
+      return;
+    }
+
+    try {
+      this.setData({ isSubmittingReply: true });
+      const task = await api.addTaskReply(this.data.task._id, { text, images });
+      this.applyTask(task);
+      this.setData({
+        replyText: "",
+        replyImageItems: [],
+        replyImageUrls: [],
+        isSubmittingReply: false
+      });
+      wx.showToast({ title: "已回复", icon: "success" });
+    } catch (error) {
+      this.setData({ isSubmittingReply: false });
+      wx.showToast({ title: error.message || "回复失败", icon: "none" });
+    }
   },
 
   startResponse(event) {

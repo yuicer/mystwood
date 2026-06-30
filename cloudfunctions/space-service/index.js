@@ -171,6 +171,27 @@ function getCompletedOpenids(task) {
   return getUniqueOpenids(task && task.completedOpenids).filter(openid => participants.includes(openid))
 }
 
+
+function toClientReplies(replies, openid) {
+  if (!Array.isArray(replies)) return []
+  return replies
+    .filter(reply => reply && reply._id)
+    .map(reply => {
+      const images = normalizeTaskImages(reply.images)
+      const isMine = reply.author === openid
+      return {
+        _id: reply._id,
+        text: reply.text || '',
+        images,
+        imageUrl: images[0] || '',
+        createdAt: reply.createdAt || null,
+        isMine,
+        authorLabel: isMine ? '我' : 'TA',
+        avatarUrl: ''
+      }
+    })
+}
+
 function toClientTask(task, openid) {
   if (!task) return null
   const location = toClientLocation(task.location)
@@ -199,6 +220,7 @@ function toClientTask(task, openid) {
     responseAt: task.responseAt || null,
     createdAt: task.createdAt,
     completedAt: task.completedAt || null,
+    replies: toClientReplies(task.replies, openid),
     completion: {
       requiredCount: participants.length,
       completedCount: completedOpenids.length,

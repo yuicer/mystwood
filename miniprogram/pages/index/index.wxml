@@ -59,24 +59,25 @@
             wx:key="_id"
             class="task-swipe"
           >
-            <view class="list-item task-row" data-id="{{item._id}}" bindtap="openTaskDetail">
-              <image
-                wx:if="{{item.coverImageUrl}}"
-                class="task-cover"
-                src="{{item.coverImageUrl}}"
-                mode="aspectFill"
-                data-index="{{index}}"
-                catchtap="previewTaskImage"
-              ></image>
-              <view class="task-info">
+            <view class="list-item task-row envelope-row" data-id="{{item._id}}" bindtap="openTaskDetail">
+              <view class="envelope-lines"></view>
+              <view class="task-info envelope-info">
                 <view class="task-title-row">
                   <view class="task-name">{{item.title}}</view>
-                  <view class="task-status">{{item.statusText}}</view>
+                  <view class="task-status envelope-stamp">{{item.statusText}}</view>
                 </view>
                 <view class="task-kind">{{item.kindText}}</view>
                 <view class="hint task-time">{{item.appointmentText || '未约定'}}</view>
                 <view wx:if="{{item.locationTitle}}" class="hint location-link" data-index="{{index}}" catchtap="openTaskLocation">地点：{{item.locationTitle}}</view>
               </view>
+              <image
+                wx:if="{{item.coverImageUrl}}"
+                class="task-cover postage-cover"
+                src="{{item.coverImageUrl}}"
+                mode="aspectFill"
+                data-index="{{index}}"
+                catchtap="previewTaskImage"
+              ></image>
             </view>
           </view>
         </view>
