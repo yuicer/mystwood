@@ -1,11 +1,11 @@
 # Mystwood 小程序项目参考
 
-> 更新日期：2026-06-19
+> 更新日期：2026-06-29
 > 当前口径：原生微信小程序 + 微信云函数；没有独立 HTTP 后端，业务调用统一走 `wx.cloud.callFunction`。
 
 ## 产品边界
 
-Mystwood 是一个双人亲密度空间：创建空间、邀请对方加入、发起三类约定、接受或婉拒约定、完成约定、把已完成或已婉拒的约定沉淀为回忆。
+Mystwood 是一个双人亲密度空间：创建空间、邀请对方加入、发起三类约定、接受或婉拒约定、完成约定、把已完成或已婉拒的约定沉淀为回忆，并在约定完成后继续用文字和图片回信复盘。
 
 已确认规则：
 
@@ -52,11 +52,11 @@ cloudfunctions/
 
 | 页面 | 主要能力 |
 | --- | --- |
-| `pages/index/index` | 展示空间状态、进行中的约定和等待回应的约定；卡片显示类型与当前角色状态；长轮询刷新 |
+| `pages/index/index` | 展示空间状态、进行中的约定和等待回应的约定；信封式卡片显示类型与当前角色状态；长轮询刷新 |
 | `pages/space/create` | 创建空间 |
 | `pages/space/invite` | 邀请码、微信分享、接受邀请 |
 | `pages/task/create` | 选择三类约定，填写标题/描述/时间/地点，选择、压缩、上传、预览多张图片 |
-| `pages/task/detail` | 查看约定，接受或婉拒，按角色完成，创建者删除，微信分享给 TA |
+| `pages/task/detail` | 信纸式查看约定，接受或婉拒，按角色完成，创建者删除，微信分享给 TA；支持任务后聊天式文字和图片回信 |
 | `pages/task/share` | 校验私密分享链接；无权访问时回首页并引导创建空间 |
 | `pages/memory/list` | 展示 `completed` / `declined` 约定 |
 | `pages/me/settings` | 修改空间名称、解绑空间 |
@@ -90,6 +90,7 @@ cloudfunctions/
 | `dissolveSpace()` | `space-service/dissolveSpace` | 解绑空间并清空任务，保留同步投递所需成员标记 |
 | `waitSyncEvents(options)` | `space-service/waitSyncEvents` | 长轮询同步事件 |
 | `createTask(payload)` | `task-service/createTask` | 创建约定 |
+| `addTaskReply(id, payload)` | `task-service/addTaskReply` | 给约定追加文字或图片回信，完成或婉拒后仍可继续回复 |
 | `respondTask(id, decision, note)` | `task-service/respondTask` | 指定 TA 接受或婉拒约定，可附一句回应 |
 | `completeTask(id)` | `task-service/completeTask` | 完成任务 |
 | `deleteTask(id)` | `task-service/deleteTask` | 仅创建者可物理删除约定及其归档 |
@@ -134,6 +135,17 @@ cloudfunctions/
 | `responseNote` / `responseAt` | TA 接受或婉拒时的可选回应与时间 |
 | `shareToken` | 私密微信分享链接校验 token，仅创建者客户端可读取 |
 | `createdAt` / `completedAt` | 创建/全部完成时间 |
+| `replies` | 约定后的回信数组，保存文字、图片和创建时间；客户端只展示“我 / TA”和默认头像，不暴露 OPENID |
+
+### `spaces.tasks[].replies[]`
+
+| 字段 | 说明 |
+| --- | --- |
+| `_id` | 回信 ID，云函数生成 |
+| `author` | 回信作者 OPENID，仅云函数和聚合层用于判断“我 / TA” |
+| `text` | 回信文字，最多 500 字，可为空 |
+| `images` | 图片云存储 fileID 数组，最多 9 张 |
+| `createdAt` | 回信时间 |
 
 ### `spaces.tasks[].location`
 
@@ -154,6 +166,7 @@ cloudfunctions/
 - `TASK_PARTICIPANT_COMPLETED`
 - `TASK_COMPLETED`
 - `TASK_DELETED`
+- `TASK_REPLIED`
 - `SPACE_DISSOLVED`
 
 ## 微信 API 使用
@@ -162,7 +175,7 @@ cloudfunctions/
 | --- | --- |
 | `wx.cloud.init` / `wx.cloud.callFunction` | 云开发初始化和业务调用 |
 | `wx.chooseLocation` / `wx.openLocation` | 选择和打开任务地点 |
-| `wx.chooseImage` / `wx.compressImage` / `wx.cloud.uploadFile` / `wx.previewImage` | 任务图片选择、压缩、上传和预览 |
+| `wx.chooseImage` / `wx.compressImage` / `wx.cloud.uploadFile` / `wx.previewImage` | 任务和回信图片选择、压缩、上传和预览 |
 | `wx.showShareMenu` / `button open-type="share"` | 微信分享邀请 |
 | `wx.navigateTo` / `wx.redirectTo` / `wx.reLaunch` | 当前非 tabBar 路由 |
 | `wx.showToast` / `wx.showModal` / `wx.setClipboardData` | 轻提示、确认、复制 |

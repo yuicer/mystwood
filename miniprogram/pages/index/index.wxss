@@ -275,3 +275,68 @@
 .task-time {
   margin-top: 6rpx;
 }
+
+.envelope-row {
+  overflow: hidden;
+  align-items: stretch;
+  margin: 18rpx 0;
+  padding: 22rpx;
+  border: 1px solid #eadfcf;
+  border-radius: 18rpx;
+  background: linear-gradient(145deg, #fffdf8, #fbf3e8);
+  box-shadow: 0 8rpx 20rpx rgba(74, 56, 31, 0.06);
+}
+
+.envelope-row::before,
+.envelope-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(211, 191, 163, 0.62);
+  transform-origin: center;
+}
+
+.envelope-row::before {
+  top: 50%;
+  transform: rotate(9deg);
+}
+
+.envelope-row::after {
+  top: 50%;
+  transform: rotate(-9deg);
+}
+
+.envelope-lines {
+  position: absolute;
+  left: 18rpx;
+  top: 18rpx;
+  width: 64rpx;
+  height: 40rpx;
+  border-top: 4rpx solid #d9c7aa;
+  border-bottom: 4rpx solid #d9c7aa;
+  opacity: 0.62;
+}
+
+.envelope-info {
+  position: relative;
+  z-index: 2;
+  padding-right: 10rpx;
+}
+
+.envelope-stamp {
+  border: 2rpx solid #9c7a42;
+  background: rgba(255, 248, 237, 0.8);
+  color: #8a6830;
+  font-weight: 700;
+  transform: rotate(4deg);
+}
+
+.postage-cover {
+  position: relative;
+  z-index: 2;
+  border: 4rpx solid #ffffff;
+  border-radius: 8rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.12);
+}

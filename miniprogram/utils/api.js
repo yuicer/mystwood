@@ -78,6 +78,9 @@ module.exports = {
   completeTask(id) {
     return callFunction("task-service", { action: "completeTask", id });
   },
+  addTaskReply(id, payload) {
+    return callFunction("task-service", { action: "addTaskReply", id, payload: payload || {} });
+  },
   deleteTask(id) {
     return callFunction("task-service", { action: "deleteTask", id });
   },
