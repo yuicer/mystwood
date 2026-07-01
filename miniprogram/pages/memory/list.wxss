@@ -1,1 +1,105 @@
-/* pages/memory/list.wxss */
+.loading-card,
+.load-error-card {
+  min-height: 320rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 56rpx;
+  height: 56rpx;
+  border: 6rpx solid rgba(47, 47, 47, 0.12);
+  border-top-color: #2f2f2f;
+  border-radius: 999rpx;
+  animation: mystwood-spin 0.9s linear infinite;
+}
+
+@keyframes mystwood-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.empty-title {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.error-hint {
+  margin: 12rpx 0 20rpx;
+}
+
+.retry-button {
+  min-width: 220rpx;
+}
+
+.memory-section-title {
+  margin-bottom: 12rpx;
+}
+
+.memory-empty {
+  padding: 18rpx 0 6rpx;
+}
+
+.memory-row {
+  padding: 20rpx 0;
+}
+
+.memory-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14rpx;
+}
+
+.memory-title {
+  flex: 1;
+  min-width: 0;
+  color: #252525;
+  font-size: 29rpx;
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.memory-status {
+  flex: 0 0 auto;
+  max-width: 176rpx;
+  padding: 5rpx 10rpx;
+  border-radius: 999rpx;
+  background: #eef6f3;
+  color: #1f6b54;
+  font-size: 21rpx;
+  line-height: 1.3;
+  text-align: right;
+}
+
+.memory-stamp {
+  border: 2rpx solid #9c7a42;
+  background: rgba(255, 248, 237, 0.8);
+  color: #8a6830;
+  font-weight: 700;
+  transform: rotate(4deg);
+}
+
+.memory-desc {
+  margin-top: 8rpx;
+  color: #756b5f;
+  font-size: 24rpx;
+  line-height: 1.45;
+  word-break: break-all;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.memory-time,
+.memory-location {
+  margin-top: 6rpx;
+  line-height: 1.45;
+  word-break: break-all;
+}

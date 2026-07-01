@@ -51,12 +51,6 @@ function pickHappyLine() {
   return HAPPY_LINES[Math.floor(Math.random() * HAPPY_LINES.length)];
 }
 
-function getTaskKindText(kind) {
-  if (kind === 'together') return '邀请一起做';
-  if (kind === 'for_partner') return '希望 TA 做';
-  return '自愿去做';
-}
-
 function getTaskStatusText(task) {
   const permissions = task.permissions || {};
   const completion = task.completion || {};
@@ -180,7 +174,6 @@ Page({
           ...task,
           imageUrls,
           coverImageUrl: imageUrls[0] || '',
-          kindText: getTaskKindText(task.kind),
           statusText: getTaskStatusText(task),
           locationTitle: lbs.getLocationName(task.location),
           appointmentText: task.appointmentAt

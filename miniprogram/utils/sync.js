@@ -12,6 +12,7 @@ const EVENT_TYPES = {
   TASK_PARTICIPANT_COMPLETED: "TASK_PARTICIPANT_COMPLETED",
   TASK_COMPLETED: "TASK_COMPLETED",
   TASK_DELETED: "TASK_DELETED",
+  TASK_REPLIED: "TASK_REPLIED",
   SPACE_DISSOLVED: "SPACE_DISSOLVED"
 };
 
@@ -25,6 +26,7 @@ const REFRESH_EVENT_TYPES = [
   EVENT_TYPES.TASK_PARTICIPANT_COMPLETED,
   EVENT_TYPES.TASK_COMPLETED,
   EVENT_TYPES.TASK_DELETED,
+  EVENT_TYPES.TASK_REPLIED,
   EVENT_TYPES.SPACE_DISSOLVED
 ];
 
@@ -51,6 +53,8 @@ function getEventMessage(event) {
       return payload.title ? `约定已完成：${payload.title}` : "这份约定已完成";
     case EVENT_TYPES.TASK_DELETED:
       return "TA 删除了一份约定";
+    case EVENT_TYPES.TASK_REPLIED:
+      return payload.title ? `TA 回信了：${payload.title}` : "TA 发来了一封回信";
     case EVENT_TYPES.SPACE_DISSOLVED:
       return "空间已解绑";
     default:

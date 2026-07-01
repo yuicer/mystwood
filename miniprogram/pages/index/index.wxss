@@ -266,14 +266,26 @@
   text-align: right;
 }
 
-.task-kind {
+.task-desc {
   margin-top: 8rpx;
   color: #756b5f;
   font-size: 23rpx;
+  line-height: 1.45;
+  word-break: break-all;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .task-time {
   margin-top: 6rpx;
+}
+
+.task-location {
+  margin-top: 6rpx;
+  line-height: 1.45;
+  word-break: break-all;
 }
 
 .envelope-row {

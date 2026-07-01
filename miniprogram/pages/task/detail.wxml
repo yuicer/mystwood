@@ -6,16 +6,12 @@
   <view wx:elif="{{task}}" class="detail-shell">
     <view class="card letter-card detail-card">
       <view class="letter-stamp {{task.status === 'completed' ? 'done' : ''}} {{task.status === 'declined' ? 'declined' : ''}}">
-        {{task.status === 'completed' ? '已盖戳' : (task.status === 'declined' ? '已婉拒' : statusText)}}
+        {{task.status === 'completed' ? '状态已完成' : (task.status === 'declined' ? '已婉拒' : statusText)}}
       </view>
 
       <view class="letter-header">
         <view class="letter-label">Mystwood Mail</view>
         <view class="detail-title">{{task.title}}</view>
-        <view class="detail-badges">
-          <view class="detail-kind">{{kindText}}</view>
-          <view class="detail-status">{{statusText}}</view>
-        </view>
       </view>
 
       <view wx:if="{{responseText}}" class="response-card">
@@ -88,7 +84,7 @@
           <button class="action-button" bindtap="startResponse" data-decision="decline">婉拒</button>
           <button class="btn-primary action-button" bindtap="startResponse" data-decision="accept">同意并开始</button>
         </view>
-        <button wx:if="{{task.permissions.canComplete}}" class="btn-primary action-button full-action" bindtap="completeTask">{{completeActionText}}</button>
+        <button wx:if="{{task.permissions.canComplete}}" class="btn-primary action-button full-action" bindtap="completeTask">{{isCompleting ? "记录中" : completeActionText}}</button>
         <button wx:if="{{task.permissions.canShare}}" class="action-button full-action" open-type="share">微信分享给 TA</button>
         <button wx:if="{{task.permissions.canDelete}}" class="danger-button action-button full-action" bindtap="deleteTask">删除约定</button>
       </view>

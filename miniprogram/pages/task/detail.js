@@ -13,12 +13,6 @@ function goBackHome() {
   });
 }
 
-function getKindText(kind) {
-  if (kind === "together") return "邀请一起做";
-  if (kind === "for_partner") return "希望 TA 做";
-  return "自愿去做";
-}
-
 function getStatusText(task) {
   const permissions = task.permissions || {};
   const completion = task.completion || {};
@@ -56,7 +50,6 @@ Page({
     appointmentText: "",
     createdText: "",
     completedText: "",
-    kindText: "",
     statusText: "",
     completionText: "",
     completeActionText: "我完成了",
@@ -69,6 +62,7 @@ Page({
     replyImageUrls: [],
     isUploadingReplyImage: false,
     isSubmittingReply: false,
+    isCompleting: false,
     maxReplyImageCount: taskImages.MAX_TASK_IMAGE_COUNT,
     isResponding: false,
     responseDecision: "",
@@ -131,7 +125,6 @@ Page({
       appointmentText: time.formatAppointmentTime(task.appointmentAt),
       createdText: time.formatAppointmentTime(task.createdAt, { emptyText: "" }),
       completedText: time.formatAppointmentTime(task.completedAt, { emptyText: "" }),
-      kindText: getKindText(task.kind),
       statusText: getStatusText(task),
       completionText: completion.requiredCount > 1 ? `${completion.completedCount || 0} / ${completion.requiredCount} 人已完成` : "",
       completeActionText: getCompleteActionText(task),
@@ -143,6 +136,7 @@ Page({
       responseDecision: "",
       responseNote: "",
       isSubmittingResponse: false,
+      isCompleting: false,
       isLoading: false
     });
   },
@@ -322,19 +316,10 @@ Page({
   },
 
   async completeTask() {
-    if (!this.data.task || !(this.data.task.permissions || {}).canComplete) return;
-    const modal = await new Promise((resolve) => {
-      wx.showModal({
-        title: "确认完成",
-        content: "确定已经完成这份约定了吗？",
-        confirmText: "完成",
-        success: resolve,
-        fail: () => resolve({ confirm: false })
-      });
-    });
-    if (!modal.confirm) return;
+    if (!this.data.task || this.data.isCompleting || !(this.data.task.permissions || {}).canComplete) return;
 
     try {
+      this.setData({ isCompleting: true });
       const task = await api.completeTask(this.data.task._id);
       this.applyTask(task);
       wx.showToast({
@@ -342,6 +327,7 @@ Page({
         icon: "success"
       });
     } catch (error) {
+      this.setData({ isCompleting: false });
       wx.showToast({ title: error.message || "操作失败", icon: "none" });
     }
   },

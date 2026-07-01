@@ -93,31 +93,6 @@
   word-break: break-all;
 }
 
-.detail-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx;
-  margin-top: 14rpx;
-}
-
-.detail-kind,
-.detail-status {
-  display: inline-flex;
-  padding: 6rpx 14rpx;
-  border-radius: 999rpx;
-  font-size: 23rpx;
-}
-
-.detail-kind {
-  background: #f1eadf;
-  color: #756b5f;
-}
-
-.detail-status {
-  background: #edf7f2;
-  color: #1f6b54;
-}
-
 .letter-body {
   margin-top: 34rpx;
   padding-top: 10rpx;

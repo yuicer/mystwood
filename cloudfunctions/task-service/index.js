@@ -35,6 +35,7 @@ const LOCATION_SOURCES = ['wx-choose-location', 'qqmap-poi', 'qqmap-center']
 const MAX_TASK_IMAGE_COUNT = 9
 const MAX_RESPONSE_NOTE_LENGTH = 120
 const MAX_REPLY_TEXT_LENGTH = 500
+const MAX_TRANSACTION_ATTEMPTS = 3
 
 function getUniqueOpenids(openids) {
   return Array.from(new Set((openids || []).filter(openid => typeof openid === 'string' && openid)))
@@ -43,6 +44,20 @@ function getUniqueOpenids(openids) {
 function toText(value, maxLength = 120) {
   if (typeof value !== 'string') return ''
   return value.trim().slice(0, maxLength)
+}
+
+function getErrorText(error) {
+  if (!error) return ''
+  return [
+    error.errCode,
+    error.code,
+    error.errMsg,
+    error.message
+  ].filter(Boolean).join(' ')
+}
+
+function isRetryableTransactionError(error) {
+  return /transaction|conflict|retry|write conflict|事务|冲突/i.test(getErrorText(error))
 }
 
 function toNullableNumber(value, min, max) {
@@ -270,6 +285,72 @@ function getParticipants(kind, creator, targetOpenid) {
   return []
 }
 
+async function addTaskReplyInTransaction({ openid, spaceId, taskId, text, images }) {
+  const reply = {
+    _id: createReplyId(),
+    author: openid,
+    text,
+    images,
+    createdAt: Date.now()
+  }
+
+  let lastError = null
+  for (let attempt = 0; attempt < MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
+    try {
+      return await db.runTransaction(async transaction => {
+        const spaceRes = await transaction.collection('spaces').doc(spaceId).get()
+        const space = spaceRes.data
+        if (!space || space.status === SPACE_STATUS.DISSOLVED) {
+          return { response: { code: 404, message: '请先创建空间' } }
+        }
+        if (space.status !== SPACE_STATUS.ACTIVE) {
+          return { response: { code: 400, message: '双方加入后才能操作约定' } }
+        }
+
+        const members = getUniqueOpenids(space.members || [])
+        if (!members.includes(openid)) return { response: { code: 403, message: '只有空间成员可以回复' } }
+
+        const tasks = space.tasks || []
+        const taskIndex = tasks.findIndex(task => task && task._id === taskId)
+        if (taskIndex < 0) return { response: { code: 404, message: '约定不存在' } }
+
+        const task = tasks[taskIndex]
+        const currentReplies = Array.isArray(task.replies) ? task.replies : []
+        if (currentReplies.some(item => item && item._id === reply._id)) {
+          return { task }
+        }
+
+        const updatedTask = {
+          ...task,
+          replies: [...currentReplies, reply]
+        }
+        const updatedTasks = tasks.map((row, index) => index === taskIndex ? updatedTask : row)
+        const change = createSyncChange(space, {
+          type: SYNC_EVENT_TYPES.TASK_REPLIED,
+          actor: openid,
+          targetOpenids: members,
+          entityType: 'task',
+          entityId: taskId,
+          payload: {
+            title: task.title || '',
+            replyId: reply._id,
+            hasText: !!text,
+            hasImages: images.length > 0
+          }
+        })
+        const sync = appendSyncChange(space, change)
+
+        await transaction.collection('spaces').doc(spaceId).update({ data: { tasks: updatedTasks, sync } })
+        return { task: updatedTask }
+      })
+    } catch (error) {
+      lastError = error
+      if (!isRetryableTransactionError(error) || attempt === MAX_TRANSACTION_ATTEMPTS - 1) throw error
+    }
+  }
+  throw lastError
+}
+
 exports.main = async (event) => {
   const wxContext = cloud.getWXContext()
   const { action, payload = {}, id } = event
@@ -425,45 +506,16 @@ exports.main = async (event) => {
 
         const spaceResult = await getActiveSpace(wxContext.OPENID)
         if (spaceResult.response) return spaceResult.response
-        const space = spaceResult.space
-        const members = getUniqueOpenids(space.members || [])
-        if (!members.includes(wxContext.OPENID)) return { code: 403, message: '只有空间成员可以回复' }
 
-        const tasks = space.tasks || []
-        const taskIndex = tasks.findIndex(task => task && task._id === id)
-        if (taskIndex < 0) return { code: 404, message: '约定不存在' }
-
-        const task = tasks[taskIndex]
-        const now = Date.now()
-        const reply = {
-          _id: createReplyId(),
-          author: wxContext.OPENID,
+        const result = await addTaskReplyInTransaction({
+          openid: wxContext.OPENID,
+          spaceId: spaceResult.space._id,
+          taskId: id,
           text,
-          images,
-          createdAt: now
-        }
-        const updatedTask = {
-          ...task,
-          replies: [...(Array.isArray(task.replies) ? task.replies : []), reply]
-        }
-        const updatedTasks = tasks.map((row, index) => index === taskIndex ? updatedTask : row)
-        const change = createSyncChange(space, {
-          type: SYNC_EVENT_TYPES.TASK_REPLIED,
-          actor: wxContext.OPENID,
-          targetOpenids: members,
-          entityType: 'task',
-          entityId: id,
-          payload: {
-            title: task.title || '',
-            replyId: reply._id,
-            hasText: !!text,
-            hasImages: images.length > 0
-          }
+          images
         })
-        const sync = appendSyncChange(space, change)
-
-        await db.collection('spaces').doc(space._id).update({ data: { tasks: updatedTasks, sync } })
-        return { code: 0, data: toClientTask(updatedTask, wxContext.OPENID) }
+        if (result.response) return result.response
+        return { code: 0, data: toClientTask(result.task, wxContext.OPENID) }
       }
       case 'deleteTask': {
         if (!id) return { code: 400, message: '约定不存在' }

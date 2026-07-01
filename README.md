@@ -52,13 +52,13 @@ cloudfunctions/
 
 | 页面 | 主要能力 |
 | --- | --- |
-| `pages/index/index` | 展示空间状态、进行中的约定和等待回应的约定；信封式卡片显示类型与当前角色状态；长轮询刷新 |
+| `pages/index/index` | 展示空间状态、进行中的约定和等待回应的约定；信封式卡片显示标题、描述与当前状态；长轮询刷新 |
 | `pages/space/create` | 创建空间 |
 | `pages/space/invite` | 邀请码、微信分享、接受邀请 |
 | `pages/task/create` | 选择三类约定，填写标题/描述/时间/地点，选择、压缩、上传、预览多张图片 |
 | `pages/task/detail` | 信纸式查看约定，接受或婉拒，按角色完成，创建者删除，微信分享给 TA；支持任务后聊天式文字和图片回信 |
 | `pages/task/share` | 校验私密分享链接；无权访问时回首页并引导创建空间 |
-| `pages/memory/list` | 展示 `completed` / `declined` 约定 |
+| `pages/memory/list` | 展示 `completed` / `declined` 约定，进页请求状态并在返回前显示 loading |
 | `pages/me/settings` | 修改空间名称、解绑空间 |
 
 当前页面注册在 `miniprogram/app.json`：

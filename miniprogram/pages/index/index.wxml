@@ -66,9 +66,9 @@
                   <view class="task-name">{{item.title}}</view>
                   <view class="task-status envelope-stamp">{{item.statusText}}</view>
                 </view>
-                <view class="task-kind">{{item.kindText}}</view>
+                <view wx:if="{{item.desc}}" class="task-desc">{{item.desc}}</view>
                 <view class="hint task-time">{{item.appointmentText || '未约定'}}</view>
-                <view wx:if="{{item.locationTitle}}" class="hint location-link" data-index="{{index}}" catchtap="openTaskLocation">地点：{{item.locationTitle}}</view>
+                <view wx:if="{{item.locationTitle}}" class="hint location-link task-location" data-index="{{index}}" catchtap="openTaskLocation">{{item.locationTitle}}</view>
               </view>
               <image
                 wx:if="{{item.coverImageUrl}}"
