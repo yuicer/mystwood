@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "moduleDetection": "force",
+    "ignoreDeprecations": "6.0",
+    "strict": false,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "lib": [
+      "ES2018",
+      "DOM"
+    ],
+    "types": []
+  },
+  "include": [
+    "miniprogram/**/*.ts",
+    "miniprogram/**/*.d.ts"
+  ],
+  "exclude": [
+    "cloudfunctions",
+    "node_modules"
+  ]
+}

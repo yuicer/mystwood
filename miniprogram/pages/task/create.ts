@@ -42,21 +42,21 @@ Page({
     }
   },
 
-  onTitleInput(event) {
+  onTitleInput(event: WxEvent<TextInputDetail>) {
     this.setData({ "form.title": event.detail.value });
   },
 
-  onDescInput(event) {
+  onDescInput(event: WxEvent<TextInputDetail>) {
     this.setData({ "form.desc": event.detail.value });
   },
 
-  selectKind(event) {
+  selectKind(event: WxEvent<AnyRecord, { kind?: string }>) {
     const kind = event.currentTarget.dataset.kind;
-    if (!TASK_KIND_OPTIONS.some((item) => item.value === kind)) return;
+    if (!TASK_KIND_OPTIONS.some((item: AnyRecord) => item.value === kind)) return;
     this.setData({ selectedKind: kind });
   },
 
-  setAppointmentSelection(index) {
+  setAppointmentSelection(index: number[]) {
     const appointment = taskForm.getAppointmentSelection(this.data.appointmentDateValues, this.data.appointmentDateLabels, index);
     this.setData({
       appointmentIndex: index,
@@ -66,7 +66,7 @@ Page({
     });
   },
 
-  onAppointmentPick(event) {
+  onAppointmentPick(event: WxEvent<PickerChangeDetail>) {
     this.setAppointmentSelection(event.detail.value);
   },
 
@@ -92,14 +92,14 @@ Page({
 
       const fileIDs = await taskImages.uploadImages(filePaths);
       const nextItems = previousImageItems
-        .concat(fileIDs.map((fileID, index) => ({
+        .concat(fileIDs.map((fileID: string, index: number) => ({
           fileID,
           previewUrl: filePaths[index] || fileID
         })))
         .slice(0, taskImages.MAX_TASK_IMAGE_COUNT);
 
       this.setData({
-        "form.images": nextItems.map((item) => item.fileID),
+        "form.images": nextItems.map((item: TaskImageItem) => item.fileID),
         imageItems: nextItems
       });
     } catch (error) {
@@ -116,18 +116,18 @@ Page({
     }
   },
 
-  previewImage(event) {
+  previewImage(event: WxEvent<AnyRecord, { index?: number | string }>) {
     const index = Number(event.currentTarget.dataset.index);
-    const urls = this.data.imageItems.map((item) => item.previewUrl || item.fileID);
+    const urls = this.data.imageItems.map((item: TaskImageItem) => item.previewUrl || item.fileID);
     taskImages.previewImages(urls, index);
   },
 
-  removeImage(event) {
+  removeImage(event: WxEvent<AnyRecord, { index?: number | string }>) {
     const index = Number(event.currentTarget.dataset.index);
-    const imageItems = this.data.imageItems.filter((item, itemIndex) => item && itemIndex !== index);
+    const imageItems = this.data.imageItems.filter((item: TaskImageItem, itemIndex: number) => item && itemIndex !== index);
     this.setData({
       imageItems,
-      "form.images": imageItems.map((item) => item.fileID)
+      "form.images": imageItems.map((item: TaskImageItem) => item.fileID)
     });
   },
 

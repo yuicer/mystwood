@@ -1,6 +1,6 @@
 # Mystwood 小程序项目参考
 
-> 更新日期：2026-06-29
+> 更新日期：2026-07-01
 > 当前口径：原生微信小程序 + 微信云函数；没有独立 HTTP 后端，业务调用统一走 `wx.cloud.callFunction`。
 
 ## 产品边界
@@ -19,14 +19,14 @@ Mystwood 是一个双人亲密度空间：创建空间、邀请对方加入、�
 
 ```text
 miniprogram/
-  app.js                         # 初始化 wx.cloud、预加载 getState
-  config.js                      # 云环境 ID 和同步参数
-  utils/api.js                   # 云函数调用封装
-  utils/lbs.js                   # 地点标准化和打开地图
-  utils/task-form.js             # 创建/编辑任务的表单、时间、地点共用逻辑
-  utils/task-images.js           # 任务图片选择、压缩、上传、预览
-  utils/sync.js                  # 长轮询同步客户端
-  utils/time.js                  # 时间展示
+  app.ts                         # 初始化 wx.cloud、预加载 getState
+  config.ts                      # 云环境 ID 和同步参数
+  utils/api.ts                   # 云函数调用封装
+  utils/lbs.ts                   # 地点标准化和打开地图
+  utils/task-form.ts             # 创建/编辑任务的表单、时间、地点共用逻辑
+  utils/task-images.ts           # 任务图片选择、压缩、上传、预览
+  utils/sync.ts                  # 长轮询同步客户端
+  utils/time.ts                  # 时间展示
   pages/index/index              # 首页/空间主页
   pages/space/create             # 创建空间
   pages/space/invite             # 邀请、分享、接受邀请
@@ -36,8 +36,8 @@ miniprogram/
   pages/memory/list              # 已完成或已婉拒的约定
   pages/me/settings              # 设置/解绑
 cloudfunctions/
-  space-service                  # 空间、邀请、状态聚合、同步长轮询
-  task-service                   # 任务创建、编辑、完成、删除
+  space-service/index.js         # 空间、邀请、状态聚合、同步长轮询
+  task-service/index.js          # 任务创建、编辑、完成、删除
 ```
 
 ## 运行和部署
@@ -47,6 +47,8 @@ cloudfunctions/
 3. 上传并部署 `cloudfunctions/space-service` 和 `cloudfunctions/task-service`。
 4. 云数据库需要 `spaces` collection。
 5. 地图选点使用 `wx.chooseLocation`，`miniprogram/app.json` 已声明 `requiredPrivateInfos: ["chooseLocation"]`。
+6. 小程序端源码使用 TypeScript；`project.config.json` 已开启微信开发者工具内置 `typescript` 编译插件，需使用 1.05.2109101 或更新版本开发者工具。
+7. 云函数保持 JavaScript 入口，直接上传 `cloudfunctions/*/index.js`。
 
 ## 页面和能力
 
@@ -78,7 +80,7 @@ cloudfunctions/
 
 ## 业务 API
 
-页面只通过 `miniprogram/utils/api.js` 调云函数。
+页面只通过 `miniprogram/utils/api.ts` 调云函数。
 
 | 方法 | 云函数/action | 说明 |
 | --- | --- | --- |
@@ -182,7 +184,7 @@ cloudfunctions/
 
 ## 开发约定
 
-1. 新业务调用先加 `miniprogram/utils/api.js`。
+1. 新业务调用先加 `miniprogram/utils/api.ts`。
 2. 页面不要直接散落 `wx.cloud.callFunction`。
 3. 云函数以 `cloud.getWXContext().OPENID` 判断当前用户，不能信任客户端传入的归属、目标成员、完成进度、安全字段或分数。
 4. 写任务前必须确认任务属于当前用户空间，并在每次写入前校验当前状态和角色权限。
@@ -192,6 +194,7 @@ cloudfunctions/
 ## 验证
 
 - 文档或样式小改：至少跑 `git diff --check`。
-- JS/云函数改动：跑 `node --check` 覆盖相关 `.js` 文件。
-- 云函数改动：确认 `utils/api.js` action 名和返回形状匹配。
+- 小程序 TS 改动：跑 `npm run typecheck`，或使用微信开发者工具编译确认。
+- 云函数 JS 改动：跑 `node --check` 覆盖相关 `.js` 文件，并确认 `utils/api.ts` action 名和返回形状匹配。
+- 类型检查：跑 `npm run typecheck` 覆盖小程序 TS 源码。
 - 新页面：确认已注册到 `miniprogram/app.json`。

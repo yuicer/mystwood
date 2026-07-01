@@ -7,7 +7,7 @@ Page({
     name: ""
   },
 
-  onNameInput(event) {
+  onNameInput(event: WxEvent<TextInputDetail>) {
     this.setData({ name: event.detail.value });
   },
 

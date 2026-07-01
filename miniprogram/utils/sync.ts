@@ -30,7 +30,7 @@ const REFRESH_EVENT_TYPES = [
   EVENT_TYPES.SPACE_DISSOLVED
 ];
 
-function getEventMessage(event) {
+function getEventMessage(event: SyncEvent | null | undefined) {
   if (!event) return "";
 
   const payload = event.payload || {};
@@ -62,11 +62,11 @@ function getEventMessage(event) {
   }
 }
 
-function shouldRefreshForEvents(events) {
-  return (events || []).some(event => REFRESH_EVENT_TYPES.includes(event.type));
+function shouldRefreshForEvents(events: SyncEvent[] | null | undefined) {
+  return (events || []).some((event: SyncEvent) => REFRESH_EVENT_TYPES.includes(event.type));
 }
 
-function getErrorText(error) {
+function getErrorText(error: Error | AnyRecord | null | undefined) {
   if (!error) return "";
   return [
     error.errCode,
@@ -76,25 +76,35 @@ function getErrorText(error) {
   ].filter(Boolean).join(" ");
 }
 
-function isRetryableSyncError(error) {
+function isRetryableSyncError(error: Error | AnyRecord | null | undefined) {
   const errorText = getErrorText(error);
   return /504003|timeout|timed out|network|request:fail|callFunction:fail|ECONN|ETIMEDOUT|超时/i.test(errorText);
 }
 
-function isTerminalSyncError(error) {
+function isTerminalSyncError(error: Error | AnyRecord | null | undefined) {
   const errorText = getErrorText(error);
   return /(^|\s)404(\s|$)|请先创建空间/.test(errorText);
 }
 
-function normalizeEvents(payload) {
+function normalizeEvents(payload: SyncEvent | { events?: SyncEvent[] } | SyncEvent[] | null | undefined): SyncEvent[] {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload.events)) return payload.events;
-  if (payload.type && typeof payload.v === "number") return [payload];
+  const source = payload as AnyRecord;
+  if (Array.isArray(source.events)) return source.events;
+  if (source.type && typeof source.v === "number") return [source as SyncEvent];
   return [];
 }
 
-function createSimulatedSocketClient(options) {
+function createSimulatedSocketClient(options: {
+  cursor?: number;
+  timeoutMs?: number;
+  intervalMs?: number;
+  emptyReconnectMinMs?: number;
+  emptyReconnectMaxMs?: number;
+  limit?: number;
+  onEvents?: (events: SyncEvent[]) => void;
+  onError?: (error: Error | AnyRecord) => void;
+}) {
   const opts = options || {};
   const retryDelays = [5000, 10000, 20000, 40000];
   const timeoutMs = opts.timeoutMs || 12000;
@@ -108,7 +118,7 @@ function createSimulatedSocketClient(options) {
   let running = false;
   let retryCount = 0;
 
-  function sleep(ms) {
+  function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
@@ -122,9 +132,9 @@ function createSimulatedSocketClient(options) {
     return min + Math.floor(Math.random() * (max - min + 1));
   }
 
-  function updateCursor(nextCursor, events) {
+  function updateCursor(nextCursor: number | undefined, events: SyncEvent[]) {
     let updatedCursor = typeof nextCursor === "number" ? nextCursor : cursor;
-    (events || []).forEach((event) => {
+    (events || []).forEach((event: SyncEvent) => {
       updatedCursor = Math.max(updatedCursor, Number(event.v || 0));
     });
     cursor = updatedCursor;

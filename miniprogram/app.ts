@@ -6,8 +6,8 @@ const api = require('./utils/api.js');
 const STATE_CACHE_KEY = 'mystwood.state.v1';
 const STATE_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
-function normalizeState(state) {
-  const source = state && typeof state === 'object' ? state : {};
+function normalizeState(state: AnyRecord | null | undefined): CloudState {
+  const source: AnyRecord = state && typeof state === 'object' ? state : {};
   const syncCursor = Number(source.syncCursor || 0);
 
   return {
@@ -18,17 +18,17 @@ function normalizeState(state) {
   };
 }
 
-function hasCachedSpace(state) {
+function hasCachedSpace(state: CloudState | null | undefined) {
   return !!(state && state.space);
 }
 
-function readCachedState() {
+function readCachedState(): Promise<CloudState | null> {
   if (typeof wx === 'undefined' || !wx.getStorage) return Promise.resolve(null);
 
   return new Promise((resolve) => {
     wx.getStorage({
       key: STATE_CACHE_KEY,
-      success(res) {
+      success(res: AnyRecord) {
         const cached = res && res.data;
         if (!cached || !cached.state || !cached.cachedAt) {
           resolve(null);
@@ -50,7 +50,7 @@ function readCachedState() {
   });
 }
 
-function writeCachedState(state) {
+function writeCachedState(state: CloudState) {
   if (typeof wx === 'undefined' || !wx.setStorage) return;
 
   wx.setStorage({
@@ -97,14 +97,14 @@ App({
         this.globalData.statePreloadPromise = null;
       }
     };
-    const promise = api.getState().then((state) => {
+    const promise = api.getState().then((state: AnyRecord) => {
       this.setStateCache(state);
       return state;
     });
 
     promise
       .then(clearPreloadPromise)
-      .catch((error) => {
+      .catch((error: Error) => {
         console.warn('[runtime] preload state failed', error);
         clearPreloadPromise();
       });
@@ -117,7 +117,7 @@ App({
     return readCachedState();
   },
 
-  setStateCache(state) {
+  setStateCache(state: AnyRecord) {
     const normalizedState = normalizeState(state);
     if (!hasCachedSpace(normalizedState)) {
       this.clearStateCache();

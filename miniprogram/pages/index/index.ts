@@ -18,7 +18,7 @@ const HAPPY_LINES = [
 
 const DEFAULT_PAGE_BACKGROUND = 'linear-gradient(135deg,#f7f6f3,#eadfc9,#d8e3dc)';
 
-function createEmptyState() {
+function createEmptyState(): CloudState {
   return {
     space: null,
     tasks: [],
@@ -27,8 +27,8 @@ function createEmptyState() {
   };
 }
 
-function normalizeState(state) {
-  const source = state && typeof state === 'object' ? state : {};
+function normalizeState(state: AnyRecord | null | undefined): CloudState {
+  const source: AnyRecord = state && typeof state === 'object' ? state : {};
   const syncCursor = Number(source.syncCursor || 0);
 
   return {
@@ -43,7 +43,7 @@ function getAppInstance() {
   return typeof getApp === 'function' ? getApp() : null;
 }
 
-function getErrorMessage(error) {
+function getErrorMessage(error: Error | AnyRecord | null | undefined) {
   return (error && (error.message || error.errMsg)) || '加载失败';
 }
 
@@ -51,7 +51,7 @@ function pickHappyLine() {
   return HAPPY_LINES[Math.floor(Math.random() * HAPPY_LINES.length)];
 }
 
-function getTaskStatusText(task) {
+function getTaskStatusText(task: AnyRecord) {
   const permissions = task.permissions || {};
   const completion = task.completion || {};
 
@@ -65,7 +65,7 @@ function getTaskStatusText(task) {
   return permissions.isCreator ? '等待 TA 完成' : '等你完成';
 }
 
-function getTaskSortRank(task) {
+function getTaskSortRank(task: AnyRecord) {
   if ((task.permissions || {}).canAccept) return 0;
   if (task.status === 'pending') return 1;
   return 2;
@@ -87,7 +87,7 @@ Page({
   syncErrorShown: false,
   serverStateLoaded: false,
 
-  onLoad(options) {
+  onLoad(options: AnyRecord) {
     this.setData({ happyLine: pickHappyLine() });
     this.shouldShowPrivateSharePrompt = !!(options && options.privateTaskShare === '1');
     this.applyCachedState();
@@ -103,7 +103,7 @@ Page({
     }
   },
 
-  showPrivateSharePrompt(state) {
+  showPrivateSharePrompt(state: CloudState | null) {
     if (!this.shouldShowPrivateSharePrompt) return;
     this.shouldShowPrivateSharePrompt = false;
     const hasSpace = !!(state && state.space);
@@ -153,7 +153,7 @@ Page({
     }
   },
 
-  getStateRequest(options) {
+  getStateRequest(options?: { usePreload?: boolean }) {
     const app = getAppInstance();
     const preloadPromise =
       app && app.globalData && app.globalData.statePreloadPromise;
@@ -163,12 +163,12 @@ Page({
     return api.getState();
   },
 
-  applyState(nextState, options) {
+  applyState(nextState: AnyRecord | null | undefined, options?: { fromCache?: boolean }) {
     const state = normalizeState(nextState);
     const taskCards = [...(state.tasks || [])]
-      .sort((first, second) => getTaskSortRank(first) - getTaskSortRank(second))
+      .sort((first: AnyRecord, second: AnyRecord) => getTaskSortRank(first) - getTaskSortRank(second))
       .slice(0, 8)
-      .map((task) => {
+      .map((task: AnyRecord) => {
         const imageUrls = taskImages.normalizeImageUrls(task.images, task.imageUrl);
         return {
           ...task,
@@ -191,7 +191,7 @@ Page({
     });
   },
 
-  async loadState(options) {
+  async loadState(options?: { quiet?: boolean; usePreload?: boolean }) {
     const quiet = options && options.quiet;
 
     if (!quiet) {
@@ -240,7 +240,7 @@ Page({
     }
   },
 
-  startSyncClient(cursor) {
+  startSyncClient(cursor: number) {
     this.stopSyncClient();
     if (!this.data.state.space) return;
 
@@ -252,13 +252,13 @@ Page({
       intervalMs: longPoll.intervalMs,
       emptyReconnectMinMs: longPoll.emptyReconnectMinMs,
       emptyReconnectMaxMs: longPoll.emptyReconnectMaxMs,
-      onEvents: (events) => {
+      onEvents: (events: SyncEvent[]) => {
         this.handleSyncEvents(events).catch(() => {});
       },
-      onError: (error) => {
+      onError: (error: Error) => {
         if (sync.isRetryableSyncError(error)) return;
         if (sync.isTerminalSyncError(error)) {
-          this.loadState({ quiet: true, usePreload: false }).then((state) => {
+          this.loadState({ quiet: true, usePreload: false }).then((state: CloudState | null) => {
             if (!state || !state.space) this.stopSyncClient();
           });
           return;
@@ -271,14 +271,14 @@ Page({
     this.syncClient.start();
   },
 
-  async handleSyncEvents(events) {
+  async handleSyncEvents(events: SyncEvent[]) {
     const validEvents = (events || []).filter(
-      (event) => event && typeof event.v === 'number',
+      (event: SyncEvent) => event && typeof event.v === 'number',
     );
     if (validEvents.length === 0) return;
 
     if (!this.handledSyncVersions) this.handledSyncVersions = {};
-    const freshEvents = validEvents.filter((event) => {
+    const freshEvents = validEvents.filter((event: SyncEvent) => {
       if (this.handledSyncVersions[event.v]) return false;
       this.handledSyncVersions[event.v] = true;
       return true;
@@ -294,25 +294,25 @@ Page({
     if (message) wx.showToast({ title: message, icon: 'none' });
   },
 
-  go(event) {
+  go(event: WxEvent<AnyRecord, { url?: string }>) {
     const url = event.currentTarget.dataset.url;
     if (url) wx.navigateTo({ url });
   },
 
-  openTaskLocation(event) {
+  openTaskLocation(event: WxEvent<AnyRecord, { index?: number | string }>) {
     const index = Number(event.currentTarget.dataset.index);
     const task = this.data.taskCards[index];
     if (!task || !task.location) return;
     lbs.openLocation(task.location);
   },
 
-  openTaskDetail(event) {
+  openTaskDetail(event: WxEvent<AnyRecord, { id?: string }>) {
     const id = event.currentTarget.dataset.id;
     if (!id) return;
     wx.navigateTo({ url: `/pages/task/detail?id=${id}` });
   },
 
-  previewTaskImage(event) {
+  previewTaskImage(event: WxEvent<AnyRecord, { index?: number | string }>) {
     const index = Number(event.currentTarget.dataset.index);
     const task = this.data.taskCards[index];
     if (!task) return;

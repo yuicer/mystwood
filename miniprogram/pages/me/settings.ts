@@ -22,7 +22,7 @@ Page({
     }
   },
 
-  onSpaceNameInput(event) {
+  onSpaceNameInput(event: WxEvent<TextInputDetail>) {
     this.setData({ spaceName: event.detail.value });
   },
 
@@ -60,7 +60,7 @@ Page({
     wx.showModal({
       title: "确认解绑",
       content: "解绑后将清空空间历史，是否继续？",
-      success: async ({ confirm }) => {
+      success: async ({ confirm }: { confirm: boolean }) => {
         if (!confirm) return;
 
         try {

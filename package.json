@@ -2,5 +2,11 @@
   "name": "mystwood-intimacy-space",
   "version": "0.4.0",
   "private": true,
-  "description": "Native WeChat Mini Program workspace for Mystwood."
+  "description": "Native WeChat Mini Program workspace for Mystwood.",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
 }

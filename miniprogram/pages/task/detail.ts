@@ -13,7 +13,7 @@ function goBackHome() {
   });
 }
 
-function getStatusText(task) {
+function getStatusText(task: AnyRecord) {
   const permissions = task.permissions || {};
   const completion = task.completion || {};
 
@@ -33,12 +33,12 @@ function getStatusText(task) {
   return permissions.isCreator ? "等待 TA 完成" : "等你完成";
 }
 
-function getCompleteActionText(task) {
+function getCompleteActionText(task: AnyRecord) {
   if (task.kind === "together") return "我已完成";
   return "我完成了";
 }
 
-function formatReplyTime(value) {
+function formatReplyTime(value: number | string | null | undefined) {
   return time.formatAppointmentTime(value, { emptyText: "" });
 }
 
@@ -71,7 +71,7 @@ Page({
     isLoading: true
   },
 
-  onLoad(options) {
+  onLoad(options: AnyRecord) {
     this.setData({ id: options && options.id ? options.id : "" });
     if (wx.showShareMenu) {
       wx.showShareMenu({ withShareTicket: true, menus: ["shareAppMessage"] });
@@ -107,15 +107,15 @@ Page({
     }
   },
 
-  applyTask(task) {
+  applyTask(task: AnyRecord) {
     const taskImageUrls = taskImages.normalizeImageUrls(task.images, task.imageUrl);
     const completion = task.completion || {};
-    const replies = (task.replies || []).map((reply) => {
+    const replies = (task.replies || []).map((reply: AnyRecord) => {
       const replyImageUrls = taskImages.normalizeImageUrls(reply.images, reply.imageUrl);
       return {
         ...reply,
         imageUrls: replyImageUrls,
-        imageItems: replyImageUrls.map((url) => ({ url })),
+        imageItems: replyImageUrls.map((url: string) => ({ url })),
         timeText: formatReplyTime(reply.createdAt)
       };
     });
@@ -130,7 +130,7 @@ Page({
       completeActionText: getCompleteActionText(task),
       responseText: task.responseNote || "",
       taskImageUrls,
-      taskImages: taskImageUrls.map((url) => ({ url })),
+      taskImages: taskImageUrls.map((url: string) => ({ url })),
       replies,
       isResponding: false,
       responseDecision: "",
@@ -151,7 +151,7 @@ Page({
       this.setData({ isLoading: !this.data.task });
       const state = await api.getState();
       const tasks = [...(state.tasks || []), ...(state.memories || [])];
-      const task = tasks.find((item) => item && item._id === this.data.id);
+      const task = tasks.find((item: AnyRecord) => item && item._id === this.data.id);
       if (!task) {
         wx.showToast({ title: "约定不存在", icon: "none" });
         goBackHome();
@@ -170,13 +170,13 @@ Page({
     lbs.openLocation(this.data.task.location);
   },
 
-  previewImage(event) {
+  previewImage(event: WxEvent<AnyRecord, { index?: number | string }>) {
     const index = Number(event.currentTarget.dataset.index);
     this.markSkipNextShowRefresh();
     taskImages.previewImages(this.data.taskImageUrls, index);
   },
 
-  onReplyInput(event) {
+  onReplyInput(event: WxEvent<TextInputDetail>) {
     this.setData({ replyText: event.detail.value });
   },
 
@@ -201,20 +201,20 @@ Page({
 
       const fileIDs = await taskImages.uploadImages(filePaths);
       const nextItems = previousImageItems
-        .concat(fileIDs.map((fileID, index) => ({
+        .concat(fileIDs.map((fileID: string, index: number) => ({
           fileID,
           previewUrl: filePaths[index] || fileID
         })))
         .slice(0, taskImages.MAX_TASK_IMAGE_COUNT);
       this.setData({
         replyImageItems: nextItems,
-        replyImageUrls: nextItems.map((item) => item.previewUrl || item.fileID)
+        replyImageUrls: nextItems.map((item: TaskImageItem) => item.previewUrl || item.fileID)
       });
     } catch (error) {
       if (!taskImages.isCancelError(error)) {
         this.setData({
           replyImageItems: previousImageItems,
-          replyImageUrls: previousImageItems.map((item) => item.previewUrl || item.fileID)
+          replyImageUrls: previousImageItems.map((item: TaskImageItem) => item.previewUrl || item.fileID)
         });
         wx.showToast({ title: error.message || "图片上传失败", icon: "none" });
       }
@@ -224,21 +224,21 @@ Page({
     }
   },
 
-  removeReplyImage(event) {
+  removeReplyImage(event: WxEvent<AnyRecord, { index?: number | string }>) {
     const index = Number(event.currentTarget.dataset.index);
-    const replyImageItems = this.data.replyImageItems.filter((item, itemIndex) => item && itemIndex !== index);
+    const replyImageItems = this.data.replyImageItems.filter((item: TaskImageItem, itemIndex: number) => item && itemIndex !== index);
     this.setData({
       replyImageItems,
-      replyImageUrls: replyImageItems.map((item) => item.previewUrl || item.fileID)
+      replyImageUrls: replyImageItems.map((item: TaskImageItem) => item.previewUrl || item.fileID)
     });
   },
 
-  previewReplyDraftImage(event) {
+  previewReplyDraftImage(event: WxEvent<AnyRecord, { index?: number | string }>) {
     const index = Number(event.currentTarget.dataset.index);
     taskImages.previewImages(this.data.replyImageUrls, index);
   },
 
-  previewReplyImage(event) {
+  previewReplyImage(event: WxEvent<AnyRecord, { replyIndex?: number | string; imageIndex?: number | string }>) {
     const replyIndex = Number(event.currentTarget.dataset.replyIndex);
     const imageIndex = Number(event.currentTarget.dataset.imageIndex);
     const reply = this.data.replies[replyIndex];
@@ -250,7 +250,7 @@ Page({
   async submitReply() {
     if (!this.data.task || this.data.isSubmittingReply) return;
     const text = this.data.replyText.trim();
-    const images = this.data.replyImageItems.map((item) => item.fileID).filter(Boolean);
+    const images = this.data.replyImageItems.map((item: TaskImageItem) => item.fileID).filter(Boolean);
     if (!text && images.length === 0) {
       wx.showToast({ title: "写点文字或选张图片吧", icon: "none" });
       return;
@@ -273,7 +273,7 @@ Page({
     }
   },
 
-  startResponse(event) {
+  startResponse(event: WxEvent<AnyRecord, { decision?: string }>) {
     const decision = event.currentTarget.dataset.decision;
     if (decision !== "accept" && decision !== "decline") return;
     this.setData({
@@ -291,7 +291,7 @@ Page({
     });
   },
 
-  onResponseNoteInput(event) {
+  onResponseNoteInput(event: WxEvent<TextInputDetail>) {
     this.setData({ responseNote: event.detail.value });
   },
 
@@ -334,7 +334,7 @@ Page({
 
   async deleteTask() {
     if (!this.data.task || !(this.data.task.permissions || {}).canDelete) return;
-    const modal = await new Promise((resolve) => {
+    const modal: any = await new Promise((resolve) => {
       wx.showModal({
         title: "删除约定",
         content: "删除后会同时从任务和回忆中移除，确定删除吗？",

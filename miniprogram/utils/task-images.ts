@@ -3,26 +3,26 @@
 const MAX_TASK_IMAGE_COUNT = 9;
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp"];
 
-function isCancelError(error) {
+function isCancelError(error: Error | AnyRecord | null | undefined) {
   const message = String((error && (error.errMsg || error.message)) || "");
   return message.includes("cancel") || message.includes("取消");
 }
 
-function getImageExtension(filePath) {
+function getImageExtension(filePath: string) {
   const cleanPath = String(filePath || "").split("?")[0];
   const extension = cleanPath.split(".").pop().toLowerCase();
   return IMAGE_EXTENSIONS.includes(extension) ? extension : "jpg";
 }
 
-function createImageCloudPath(filePath) {
+function createImageCloudPath(filePath: string) {
   const extension = getImageExtension(filePath);
   const random = Math.random().toString(36).slice(2, 8);
   return `task-images/${Date.now()}-${random}.${extension}`;
 }
 
-function uniqueUrls(urls) {
-  const seen = {};
-  const result = [];
+function uniqueUrls(urls: unknown[]) {
+  const seen: Record<string, boolean> = {};
+  const result: string[] = [];
   (urls || []).forEach((url) => {
     const text = typeof url === "string" ? url.trim() : "";
     if (!text || seen[text]) return;
@@ -32,8 +32,8 @@ function uniqueUrls(urls) {
   return result;
 }
 
-function normalizeImageUrls(images, fallbackImageUrl) {
-  const urls = [];
+function normalizeImageUrls(images: Array<string | TaskImageItem> | null | undefined, fallbackImageUrl = "") {
+  const urls: string[] = [];
   if (Array.isArray(images)) {
     images.forEach((image) => {
       if (typeof image === "string") {
@@ -49,15 +49,15 @@ function normalizeImageUrls(images, fallbackImageUrl) {
   return uniqueUrls(urls).slice(0, MAX_TASK_IMAGE_COUNT);
 }
 
-function createImageItems(images, fallbackImageUrl) {
+function createImageItems(images: Array<string | TaskImageItem> | null | undefined, fallbackImageUrl: string | null | undefined) {
   return normalizeImageUrls(images, fallbackImageUrl).map((url) => ({
     fileID: url,
     previewUrl: url
   }));
 }
 
-function chooseImages(count) {
-  return new Promise((resolve, reject) => {
+function chooseImages(count: number) {
+  return new Promise<string[]>((resolve, reject) => {
     if (!wx.chooseImage) {
       reject(new Error("当前微信版本不支持选择图片"));
       return;
@@ -67,7 +67,7 @@ function chooseImages(count) {
       count: Math.max(1, Math.min(MAX_TASK_IMAGE_COUNT, Number(count) || 1)),
       sizeType: ["original", "compressed"],
       sourceType: ["album", "camera"],
-      success(res) {
+      success(res: AnyRecord) {
         resolve(Array.isArray(res.tempFilePaths) ? res.tempFilePaths : []);
       },
       fail: reject
@@ -75,14 +75,14 @@ function chooseImages(count) {
   });
 }
 
-function compressImage(filePath, quality) {
+function compressImage(filePath: string, quality: number | undefined) {
   if (!wx.compressImage) return Promise.resolve(filePath);
 
-  return new Promise((resolve) => {
+  return new Promise<string>((resolve) => {
     wx.compressImage({
       src: filePath,
       quality: Math.max(1, Math.min(100, Number(quality) || 72)),
-      success(res) {
+      success(res: AnyRecord) {
         resolve(res.tempFilePath || filePath);
       },
       fail() {
@@ -92,18 +92,18 @@ function compressImage(filePath, quality) {
   });
 }
 
-async function chooseAndCompressImages(options) {
-  const opts = options || {};
+async function chooseAndCompressImages(options: { count: number; quality?: number }) {
+  const opts = options;
   const paths = await chooseImages(opts.count);
-  const compressedPaths = [];
+  const compressedPaths: string[] = [];
   for (let index = 0; index < paths.length; index += 1) {
     compressedPaths.push(await compressImage(paths[index], opts.quality));
   }
   return compressedPaths;
 }
 
-function uploadImage(filePath) {
-  return new Promise((resolve, reject) => {
+function uploadImage(filePath: string) {
+  return new Promise<string>((resolve, reject) => {
     if (!wx.cloud || !wx.cloud.uploadFile) {
       reject(new Error("云存储未初始化"));
       return;
@@ -112,7 +112,7 @@ function uploadImage(filePath) {
     wx.cloud.uploadFile({
       cloudPath: createImageCloudPath(filePath),
       filePath,
-      success(res) {
+      success(res: AnyRecord) {
         if (res && res.fileID) {
           resolve(res.fileID);
           return;
@@ -124,15 +124,15 @@ function uploadImage(filePath) {
   });
 }
 
-async function uploadImages(filePaths) {
-  const fileIDs = [];
+async function uploadImages(filePaths: string[]) {
+  const fileIDs: string[] = [];
   for (let index = 0; index < filePaths.length; index += 1) {
     fileIDs.push(await uploadImage(filePaths[index]));
   }
   return fileIDs;
 }
 
-function previewImages(urls, currentIndex) {
+function previewImages(urls: Array<string | TaskImageItem> | null | undefined, currentIndex: number) {
   const imageUrls = normalizeImageUrls(urls);
   if (imageUrls.length === 0 || !wx.previewImage) return;
   const index = Math.max(0, Math.min(imageUrls.length - 1, Number(currentIndex) || 0));

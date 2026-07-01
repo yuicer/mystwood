@@ -20,7 +20,7 @@ Page({
   syncClient: null,
   syncErrorShown: false,
 
-  onLoad(options) {
+  onLoad(options: AnyRecord) {
     const rawInviteToken = options && (options.inviteToken || options.token || options.scene);
     const inviteToken = rawInviteToken ? decodeURIComponent(rawInviteToken) : "";
     this.setData({ inviteToken });
@@ -95,7 +95,7 @@ Page({
     this.stopInviteClient();
   },
 
-  startInviteClient(cursor) {
+  startInviteClient(cursor: number) {
     this.stopInviteClient();
     if (!this.data.space || !this.data.space.inviteToken || this.data.space.status !== SPACE_STATUS.PENDING) return;
 
@@ -107,10 +107,10 @@ Page({
       intervalMs: longPoll.intervalMs,
       emptyReconnectMinMs: longPoll.emptyReconnectMinMs,
       emptyReconnectMaxMs: longPoll.emptyReconnectMaxMs,
-      onEvents: (events) => {
+      onEvents: (events: SyncEvent[]) => {
         this.handleSyncEvents(events);
       },
-      onError: (error) => {
+      onError: (error: Error) => {
         if (sync.isRetryableSyncError(error)) return;
         if (sync.isTerminalSyncError(error)) {
           this.stopInviteClient();
@@ -131,8 +131,8 @@ Page({
     }
   },
 
-  handleSyncEvents(events) {
-    const hasInviteConfirmed = (events || []).some(event => event && event.type === sync.EVENT_TYPES.INVITE_CONFIRMED);
+  handleSyncEvents(events: SyncEvent[]) {
+    const hasInviteConfirmed = (events || []).some((event: SyncEvent) => event && event.type === sync.EVENT_TYPES.INVITE_CONFIRMED);
     if (!hasInviteConfirmed) return;
 
     this.stopInviteClient();

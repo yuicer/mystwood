@@ -1,10 +1,10 @@
 "use strict";
 
-function padNumber(value) {
+function padNumber(value: number) {
   return String(value).padStart(2, "0");
 }
 
-function getPeriod(hour) {
+function getPeriod(hour: number) {
   if (hour < 6) return "凌晨";
   if (hour < 12) return "上午";
   if (hour < 14) return "中午";
@@ -12,7 +12,7 @@ function getPeriod(hour) {
   return "晚上";
 }
 
-function formatAppointmentTime(timestamp, options = {}) {
+function formatAppointmentTime(timestamp: number | string | null | undefined, options: { emptyText?: string; now?: number | string | Date } = {}) {
   const value = Number(timestamp);
   if (!Number.isFinite(value) || value <= 0) return options.emptyText || "未约定";
 

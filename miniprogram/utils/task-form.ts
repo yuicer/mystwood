@@ -9,6 +9,15 @@ const APPOINTMENT_MINUTES = Array.from({ length: 60 }, (_, index) => String(inde
 const DEFAULT_APPOINTMENT_TIME = "10:00";
 const DEFAULT_APPOINTMENT_INDEX = [0, 10, 0];
 
+interface TaskFormData {
+  title: string;
+  desc: string;
+  location: TaskLocation | null;
+  images: string[];
+  date: string;
+  time: string;
+}
+
 function getEmptyForm() {
   return {
     title: "",
@@ -17,18 +26,18 @@ function getEmptyForm() {
     images: [],
     date: "",
     time: DEFAULT_APPOINTMENT_TIME
-  };
+  } as TaskFormData;
 }
 
-function padNumber(value) {
+function padNumber(value: number) {
   return String(value).padStart(2, "0");
 }
 
-function formatDateValue(date) {
+function formatDateValue(date: Date) {
   return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())}`;
 }
 
-function formatDateLabel(date, offset, currentYear) {
+function formatDateLabel(date: Date, offset: number, currentYear: number) {
   const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
   const monthDay = `${padNumber(date.getMonth() + 1)}月${padNumber(date.getDate())}日`;
   const dateText = date.getFullYear() === currentYear
@@ -62,7 +71,7 @@ function createAppointmentConfig() {
   };
 }
 
-function getAppointmentSelection(dateValues, dateLabels, index = []) {
+function getAppointmentSelection(dateValues: string[], dateLabels: string[], index: number[] = []) {
   const dateIndex = Number(index[0]) || 0;
   const hourIndex = Number(index[1]) || 0;
   const minuteIndex = Number(index[2]) || 0;
@@ -83,7 +92,7 @@ function getAppointmentSelection(dateValues, dateLabels, index = []) {
   };
 }
 
-function getAppointmentSelectionFromTimestamp(timestamp, dateValues, dateLabels) {
+function getAppointmentSelectionFromTimestamp(timestamp: number | string | null | undefined, dateValues: string[], dateLabels: string[]) {
   const value = Number(timestamp);
   if (!Number.isFinite(value) || value <= 0) return null;
 
@@ -107,7 +116,7 @@ function getAppointmentSelectionFromTimestamp(timestamp, dateValues, dateLabels)
   };
 }
 
-function getAppointmentData(timestamp) {
+function getAppointmentData(timestamp: number | string | null | undefined) {
   const config = createAppointmentConfig();
   const dateValues = config.dates.map((date) => date.value);
   const dateLabels = config.dates.map((date) => date.label);
@@ -124,7 +133,7 @@ function getAppointmentData(timestamp) {
   };
 }
 
-function buildAppointmentAt(date, timeValue) {
+function buildAppointmentAt(date: string, timeValue: string) {
   if (!date) return null;
   const dateParts = date.split("-").map(Number);
   const timeParts = (timeValue || DEFAULT_APPOINTMENT_TIME).split(":").map(Number);
@@ -136,8 +145,8 @@ function buildAppointmentAt(date, timeValue) {
   return Number.isFinite(appointmentAt) ? appointmentAt : null;
 }
 
-function chooseTaskLocation(currentLocation) {
-  return new Promise((resolve, reject) => {
+function chooseTaskLocation(currentLocation: TaskLocation | null | undefined) {
+  return new Promise<TaskLocation>((resolve, reject) => {
     if (!wx.chooseLocation) {
       reject(new Error("当前微信版本不支持位置选择"));
       return;
@@ -153,7 +162,7 @@ function chooseTaskLocation(currentLocation) {
 
     wx.chooseLocation({
       ...options,
-      success(res) {
+      success(res: TaskLocation) {
         const location = lbs.normalizeChooseLocation(res);
         if (location) {
           resolve(location);

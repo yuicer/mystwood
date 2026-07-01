@@ -7,7 +7,7 @@ Page({
     isLoading: true
   },
 
-  onLoad(options) {
+  onLoad(options: AnyRecord) {
     this.taskId = options && options.id ? decodeURIComponent(options.id) : "";
     this.shareToken = options && options.shareToken ? decodeURIComponent(options.shareToken) : "";
   },
