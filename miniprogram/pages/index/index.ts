@@ -165,6 +165,10 @@ Page({
 
   applyState(nextState: AnyRecord | null | undefined, options?: { fromCache?: boolean }) {
     const state = normalizeState(nextState);
+    const spaceName = state.space && typeof state.space.name === "string" ? state.space.name.trim() : "";
+    if (wx.setNavigationBarTitle) {
+      wx.setNavigationBarTitle({ title: spaceName || "Mystwood" });
+    }
     const taskCards = [...(state.tasks || [])]
       .sort((first: AnyRecord, second: AnyRecord) => getTaskSortRank(first) - getTaskSortRank(second))
       .slice(0, 8)

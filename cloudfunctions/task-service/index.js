@@ -253,6 +253,7 @@ function toClientTask(task, openid) {
       isCreator,
       canAccept: task.status === TASK_STATUS.PENDING && isTarget,
       canDecline: task.status === TASK_STATUS.PENDING && isTarget,
+      canReply: task.status === TASK_STATUS.ACTIVE,
       canComplete: task.status === TASK_STATUS.ACTIVE && isParticipant && !isMineCompleted,
       canDelete: isCreator,
       canShare: isCreator && isOpen
@@ -315,6 +316,9 @@ async function addTaskReplyInTransaction({ openid, spaceId, taskId, text, images
         if (taskIndex < 0) return { response: { code: 404, message: '约定不存在' } }
 
         const task = tasks[taskIndex]
+        if (task.status !== TASK_STATUS.ACTIVE) {
+          return { response: { code: 400, message: '约定进行中才可以回信' } }
+        }
         const currentReplies = Array.isArray(task.replies) ? task.replies : []
         if (currentReplies.some(item => item && item._id === reply._id)) {
           return { task }

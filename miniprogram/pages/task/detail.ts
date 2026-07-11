@@ -110,6 +110,7 @@ Page({
   applyTask(task: AnyRecord) {
     const taskImageUrls = taskImages.normalizeImageUrls(task.images, task.imageUrl);
     const completion = task.completion || {};
+    const canReply = !!((task.permissions || {}).canReply);
     const replies = (task.replies || []).map((reply: AnyRecord) => {
       const replyImageUrls = taskImages.normalizeImageUrls(reply.images, reply.imageUrl);
       return {
@@ -132,6 +133,11 @@ Page({
       taskImageUrls,
       taskImages: taskImageUrls.map((url: string) => ({ url })),
       replies,
+      replyText: canReply ? this.data.replyText : "",
+      replyImageItems: canReply ? this.data.replyImageItems : [],
+      replyImageUrls: canReply ? this.data.replyImageUrls : [],
+      isUploadingReplyImage: false,
+      isSubmittingReply: false,
       isResponding: false,
       responseDecision: "",
       responseNote: "",
@@ -181,6 +187,11 @@ Page({
   },
 
   async chooseReplyImage() {
+    const permissions = (this.data.task && this.data.task.permissions) || {};
+    if (!permissions.canReply) {
+      wx.showToast({ title: "约定进行中才可以回信", icon: "none" });
+      return;
+    }
     if (this.data.isUploadingReplyImage) return;
     const remainingCount = taskImages.MAX_TASK_IMAGE_COUNT - this.data.replyImageItems.length;
     if (remainingCount <= 0) {
@@ -249,6 +260,11 @@ Page({
 
   async submitReply() {
     if (!this.data.task || this.data.isSubmittingReply) return;
+    const permissions = this.data.task.permissions || {};
+    if (!permissions.canReply) {
+      wx.showToast({ title: "约定进行中才可以回信", icon: "none" });
+      return;
+    }
     const text = this.data.replyText.trim();
     const images = this.data.replyImageItems.map((item: TaskImageItem) => item.fileID).filter(Boolean);
     if (!text && images.length === 0) {

@@ -391,7 +391,7 @@ exports.main = async (event, context) => {
         return { code: 0, data: true }
       }
       case 'getInvite': {
-        if (!inviteToken) return { code: 400, message: '邀请码无效' }
+        if (!inviteToken) return { code: 400, message: '邀请链接无效或已失效' }
 
         const inviteRes = await db.collection('spaces').where({ inviteToken, status: SPACE_STATUS.PENDING }).limit(1).get()
         const row = inviteRes.data[0]
@@ -406,7 +406,7 @@ exports.main = async (event, context) => {
         }
       }
       case 'acceptInvite': {
-        if (!inviteToken) return { code: 400, message: '邀请码无效' }
+        if (!inviteToken) return { code: 400, message: '邀请链接无效或已失效' }
 
         const currentSpace = await getCurrentSpace(wxContext.OPENID)
         if (currentSpace) return { code: 400, message: '你已加入一个空间' }

@@ -1,12 +1,11 @@
 <view class="page-wrap">
   <view wx:if="{{space}}" class="card">
     <view class="section-title">{{space.name}}</view>
-    <view class="hint" style="margin:12rpx 0">分享这个邀请码给 TA：{{space.inviteToken}}</view>
-    <view wx:if="{{space.status === 'pending'}}" class="hint" style="margin-bottom: 12rpx;">
-      等待对方确认
-    </view>
-    <button bindtap="copy">复制邀请码</button>
-    <button class="btn-primary btn-stack" open-type="share">微信分享邀请</button>
+    <block wx:if="{{space.status === 'pending'}}">
+      <view class="hint" style="margin:12rpx 0 20rpx;">这封邀请已经寄出，等 TA 查收。</view>
+      <button class="btn-primary" open-type="share">提醒 TA 查收</button>
+    </block>
+    <view wx:else class="hint" style="margin-top:12rpx;">TA 已经加入这片森林。</view>
   </view>
 
   <view wx:elif="{{invite}}" class="card">

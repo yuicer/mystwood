@@ -140,14 +140,6 @@ Page({
     setTimeout(() => wx.redirectTo({ url: "/pages/index/index" }), 400);
   },
 
-  copy() {
-    if (!this.data.space || !this.data.space.inviteToken) {
-      wx.showToast({ title: "暂无邀请码", icon: "none" });
-      return;
-    }
-    wx.setClipboardData({ data: this.data.space.inviteToken });
-  },
-
   async acceptInvite() {
     try {
       await api.acceptInvite(this.data.inviteToken);
