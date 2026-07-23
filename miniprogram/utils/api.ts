@@ -1,11 +1,22 @@
 "use strict";
 
-function createCallError(source: AnyRecord | null | undefined, fallbackMessage: string) {
+function createCallError(
+  source: AnyRecord | null | undefined,
+  fallbackMessage: string,
+  useSourceMessage = false
+) {
+  const hasErrCode =
+    source &&
+    source.errCode !== null &&
+    typeof source.errCode !== "undefined" &&
+    source.errCode !== "";
   const error = new Error(
-    (source && (source.message || source.errMsg)) || fallbackMessage || "微信云函数调用失败"
+    hasErrCode
+      ? `错误码：${source.errCode}`
+      : (useSourceMessage && source && source.message) || fallbackMessage || "微信云函数调用失败"
   );
   if (source && source.code) error.code = source.code;
-  if (source && source.errCode) error.errCode = source.errCode;
+  if (hasErrCode) error.errCode = source.errCode;
   if (source && source.errMsg) error.errMsg = source.errMsg;
   error.raw = source;
   return error;
@@ -24,7 +35,7 @@ function callFunction(name: string, data?: AnyRecord) {
       success(res: AnyRecord) {
         const payload = res && res.result;
         if (payload && payload.code && payload.code !== 0) {
-          reject(createCallError(payload, "微信云函数调用失败"));
+          reject(createCallError(payload, "微信云函数调用失败", true));
           return;
         }
         resolve(payload && Object.prototype.hasOwnProperty.call(payload, "data") ? payload.data : payload);

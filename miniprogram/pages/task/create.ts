@@ -8,12 +8,12 @@ const taskImages = require("../../utils/task-images.js");
 const TASK_KIND_OPTIONS = [
   {
     value: "self",
-    title: "自愿去做",
+    title: "我来做",
     desc: "我想为自己做到，完成由我来决定。"
   },
   {
     value: "together",
-    title: "邀请一起做",
+    title: "一起做",
     desc: "等 TA 同意后，你们都要完成。"
   },
   {
@@ -31,6 +31,7 @@ Page({
     selectedLocationName: "",
     imageItems: [],
     isUploadingImage: false,
+    isSubmitting: false,
     maxImageCount: taskImages.MAX_TASK_IMAGE_COUNT
   }, taskForm.getAppointmentData()),
 
@@ -146,6 +147,12 @@ Page({
   },
 
   async create() {
+    if (this.data.isSubmitting) return;
+    if (this.data.isUploadingImage) {
+      wx.showToast({ title: "请等待图片上传完成", icon: "none" });
+      return;
+    }
+
     const { form } = this.data;
     if (!form.title.trim()) {
       wx.showToast({ title: "请填写约定名称", icon: "none" });
@@ -153,6 +160,7 @@ Page({
     }
 
     try {
+      this.setData({ isSubmitting: true });
       const createdTask = await api.createTask({
         title: form.title.trim(),
         desc: form.desc.trim(),
@@ -165,6 +173,8 @@ Page({
       wx.redirectTo({ url: `/pages/task/detail?id=${createdTask._id}` });
     } catch (error) {
       wx.showToast({ title: error.message || "创建失败", icon: "none" });
+    } finally {
+      this.setData({ isSubmitting: false });
     }
   }
 });

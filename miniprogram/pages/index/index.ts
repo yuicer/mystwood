@@ -4,7 +4,6 @@ const api = require('../../utils/api.js');
 const config = require('../../config.js');
 const lbs = require('../../utils/lbs.js');
 const sync = require('../../utils/sync.js');
-const taskImages = require('../../utils/task-images.js');
 const time = require('../../utils/time.js');
 
 const HAPPY_LINES = [
@@ -71,10 +70,27 @@ function getTaskSortRank(task: AnyRecord) {
   return 2;
 }
 
+function getMemoryPhotoCount(memories: AnyRecord[]) {
+  return (memories || []).reduce((total: number, memory: AnyRecord) => {
+    if (Array.isArray(memory.images) && memory.images.length) return total + memory.images.length;
+    return total + (memory.imageUrl ? 1 : 0);
+  }, 0);
+}
+
+function getTaskMetaText(task: AnyRecord, appointmentText: string, locationTitle: string) {
+  if (task.status === 'pending') {
+    return (task.permissions || {}).canAccept ? 'TA 发来的约定，等你回应' : '已送达，等 TA 说好';
+  }
+  return [appointmentText !== '未约定' ? appointmentText : '', locationTitle].filter(Boolean).join(' · ') || '正在一起发生';
+}
+
 Page({
   data: {
     state: createEmptyState(),
     taskCards: [],
+    waitingTaskCards: [],
+    activeTaskCards: [],
+    memoryPhotoCount: 0,
     pageBackground: DEFAULT_PAGE_BACKGROUND,
     happyLine: pickHappyLine(),
     isLoadingState: true,
@@ -173,22 +189,25 @@ Page({
       .sort((first: AnyRecord, second: AnyRecord) => getTaskSortRank(first) - getTaskSortRank(second))
       .slice(0, 8)
       .map((task: AnyRecord) => {
-        const imageUrls = taskImages.normalizeImageUrls(task.images, task.imageUrl);
+        const locationTitle = lbs.getLocationName(task.location);
+        const appointmentText = task.appointmentAt
+          ? time.formatAppointmentTime(task.appointmentAt)
+          : '未约定';
         return {
           ...task,
-          imageUrls,
-          coverImageUrl: imageUrls[0] || '',
-          statusText: getTaskStatusText(task),
-          locationTitle: lbs.getLocationName(task.location),
-          appointmentText: task.appointmentAt
-            ? time.formatAppointmentTime(task.appointmentAt)
-            : '未约定',
+          statusText: task.status === 'pending' ? '等回应' : getTaskStatusText(task),
+          locationTitle,
+          appointmentText,
+          metaText: getTaskMetaText(task, appointmentText, locationTitle),
         };
       });
 
     this.setData({
       state,
       taskCards,
+      waitingTaskCards: taskCards.filter((task: AnyRecord) => task.status === 'pending'),
+      activeTaskCards: taskCards.filter((task: AnyRecord) => task.status === 'active'),
+      memoryPhotoCount: getMemoryPhotoCount(state.memories || []),
       stateReady: true,
       isLoadingState: !!(options && options.fromCache),
       loadError: '',
@@ -303,9 +322,9 @@ Page({
     if (url) wx.navigateTo({ url });
   },
 
-  openTaskLocation(event: WxEvent<AnyRecord, { index?: number | string }>) {
-    const index = Number(event.currentTarget.dataset.index);
-    const task = this.data.taskCards[index];
+  openTaskLocation(event: WxEvent<AnyRecord, { id?: string }>) {
+    const id = event.currentTarget.dataset.id;
+    const task = this.data.taskCards.find((item: AnyRecord) => item && item._id === id);
     if (!task || !task.location) return;
     lbs.openLocation(task.location);
   },
@@ -314,13 +333,6 @@ Page({
     const id = event.currentTarget.dataset.id;
     if (!id) return;
     wx.navigateTo({ url: `/pages/task/detail?id=${id}` });
-  },
-
-  previewTaskImage(event: WxEvent<AnyRecord, { index?: number | string }>) {
-    const index = Number(event.currentTarget.dataset.index);
-    const task = this.data.taskCards[index];
-    if (!task) return;
-    taskImages.previewImages(task.imageUrls, 0);
   },
 
 });

@@ -1,21 +1,59 @@
-<view class="page-wrap">
-  <view wx:if="{{space}}" class="card">
-    <view class="section-title">{{space.name}}</view>
+<view class="page-wrap invite-page">
+  <block wx:if="{{space}}">
     <block wx:if="{{space.status === 'pending'}}">
-      <view class="hint" style="margin:12rpx 0 20rpx;">这封邀请已经寄出，等 TA 查收。</view>
-      <button class="btn-primary" open-type="share">提醒 TA 查收</button>
+      <view class="page-title">把「{{space.name}}」分享给 TA</view>
+      <view class="page-subtitle">让微信把这份邀请送到 TA 手里。</view>
+
+      <view class="invite-summary">
+        <image class="treehouse-mark" src="/assets/icons/treehouse-mark.svg" mode="aspectFit"></image>
+        <view class="invite-summary-copy">
+          <view class="invite-space-name">{{space.name}}</view>
+          <view class="hint invite-space-desc">一片只属于你们的树上住处</view>
+          <view class="status-tag waiting-tag">等待 TA 查收</view>
+        </view>
+      </view>
+
+      <button class="btn-primary invite-main-button" open-type="share">提醒 TA 查收</button>
     </block>
-    <view wx:else class="hint" style="margin-top:12rpx;">TA 已经加入这片森林。</view>
-  </view>
 
-  <view wx:elif="{{invite}}" class="card">
-    <view class="section-title">{{invite.name}}</view>
-    <view class="hint" style="margin:12rpx 0 20rpx">对方邀请你加入这个空间。</view>
-    <button class="btn-primary" bindtap="acceptInvite">接受邀请</button>
-  </view>
+    <block wx:else>
+      <view class="page-title">TA 已经住进「{{space.name}}」</view>
+      <view class="page-subtitle">你们的约定与回忆，会从这里慢慢长出来。</view>
+      <view class="invite-summary joined-summary">
+        <image class="treehouse-mark" src="/assets/icons/treehouse-mark.svg" mode="aspectFit"></image>
+        <view class="invite-summary-copy">
+          <view class="invite-space-name">{{space.name}}</view>
+          <view class="status-tag active-tag">已经相遇</view>
+        </view>
+      </view>
+      <button class="btn-primary invite-main-button" bindtap="goHome">回到空间</button>
+    </block>
+  </block>
 
-  <view wx:else class="card">
-    <view class="hint">你还没有空间，先创建一个吧。</view>
-    <button class="btn-primary btn-stack" bindtap="goCreate">去创建</button>
+  <block wx:elif="{{invite}}">
+    <view class="page-title">TA 邀请你一起住进树冠</view>
+    <view class="page-subtitle">在这里收藏约定，也收藏后来才想起的话。</view>
+
+    <view class="invite-summary received-summary">
+      <view class="invite-summary-copy">
+        <view class="invite-space-name">{{invite.name}}</view>
+        <view class="status-tag active-tag">来自 TA 的邀请</view>
+        <view class="invite-message">我想把一些小小的约定，和后来才想起的话，都和你一起收在这里。</view>
+      </view>
+      <image class="treehouse-mark received-mark" src="/assets/icons/treehouse-mark.svg" mode="aspectFit"></image>
+    </view>
+
+    <button
+      class="btn-primary invite-main-button"
+      loading="{{isAccepting}}"
+      disabled="{{isAccepting}}"
+      bindtap="acceptInvite"
+    >立即加入</button>
+  </block>
+
+  <view wx:else class="invite-empty">
+    <view class="page-title">还没有可以查看的邀请</view>
+    <view class="page-subtitle">可以先创建一个属于你们的双人空间。</view>
+    <button class="btn-primary invite-main-button" bindtap="goCreate">去创建</button>
   </view>
 </view>

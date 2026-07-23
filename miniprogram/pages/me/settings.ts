@@ -27,6 +27,8 @@ Page({
   },
 
   async saveSpaceName() {
+    if (this.data.savingName) return;
+
     const name = this.data.spaceName.trim();
     if (!name) {
       wx.showToast({ title: "请填写空间名称", icon: "none" });

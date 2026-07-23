@@ -1,1 +1,40 @@
-/* pages/space/create.wxss */
+.space-create-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.create-intro {
+  padding-top: 18rpx;
+}
+
+.space-name-form {
+  position: relative;
+  margin-top: 100rpx;
+}
+
+.treehouse-mark {
+  position: absolute;
+  right: 8rpx;
+  top: -28rpx;
+  width: 72rpx;
+  height: 72rpx;
+}
+
+.space-name-input {
+  width: 100%;
+  height: 112rpx;
+  font-size: 30rpx;
+}
+
+.create-hint {
+  margin-top: 34rpx;
+}
+
+.create-space-button {
+  width: 100%;
+  height: 96rpx;
+  margin-top: auto;
+  margin-bottom: 40rpx;
+  line-height: 96rpx;
+  font-size: 30rpx;
+}

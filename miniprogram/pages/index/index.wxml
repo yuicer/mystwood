@@ -6,80 +6,80 @@
   <view wx:elif="{{loadError && !stateReady}}" class="card load-error-card">
     <view class="empty-title">暂时没有同步成功</view>
     <view class="hint error-hint">{{loadError}}</view>
-    <button class="btn-primary" bindtap="retryLoadState">重新加载</button>
+    <button class="btn-primary retry-button" bindtap="retryLoadState">重新加载</button>
   </view>
 
   <block wx:else>
-    <view wx:if="{{!state.space}}" class="card empty-card">
-      <view class="empty-title">欢迎来到亲密空间</view>
-      <view class="hint empty-copy">先创建你们的双人空间，再邀请 TA 加入。</view>
-      <button class="btn-primary" data-url="/pages/space/create" bindtap="go">立即创建空间</button>
+    <view wx:if="{{!state.space}}" class="empty-space">
+      <image class="empty-treehouse" src="/assets/icons/treehouse-mark.svg" mode="aspectFit"></image>
+      <view class="page-title">欢迎来到 Mystwood</view>
+      <view class="page-subtitle">先为你们创建一片树冠，再邀请 TA 一起住进来。</view>
+      <button class="btn-primary empty-create-button" data-url="/pages/space/create" bindtap="go">创建空间</button>
     </view>
 
     <block wx:else>
-      <view class="card space-card">
-        <view class="theme-header">
-          <view class="theme-title">{{state.space.name}}</view>
-          <button class="settings-icon" data-url="/pages/me/settings" bindtap="go">
-            <image class="settings-icon-image" src="/assets/icons/settings-gear.svg" mode="aspectFit"></image>
-          </button>
-        </view>
-
-        <view class="theme-meta">
-          <view class="space-summary">
-            <view class="happy-line">{{happyLine}}</view>
-          </view>
-          <button class="memory-link" data-url="/pages/memory/list" bindtap="go">
-            <view class="memory-title">回忆</view>
-            <view class="memory-count">{{state.memories.length}} 条</view>
-          </button>
-        </view>
+      <view class="space-header">
+        <view class="space-title">{{state.space.name}}</view>
+        <button class="settings-icon" aria-label="空间设置" data-url="/pages/me/settings" bindtap="go">
+          <image class="settings-icon-image" src="/assets/icons/settings-gear.svg" mode="aspectFit"></image>
+        </button>
       </view>
 
-      <view wx:if="{{state.space.status !== 'active'}}" class="card invite-card">
-        <view class="hint">还差一步，邀请 TA 同意后空间生效。</view>
-        <button class="btn-primary invite-button" data-url="/pages/space/invite" bindtap="go">去邀请</button>
+      <view class="daily-copy">
+        <view class="daily-label">今日树语</view>
+        <view class="happy-line">{{happyLine}}</view>
+      </view>
+
+      <button class="memory-link" data-url="/pages/memory/list" bindtap="go">
+        <image class="memory-icon" src="/assets/icons/history.svg" mode="aspectFit"></image>
+        <view class="memory-copy">
+          <view class="memory-title">回忆时间线</view>
+          <view class="memory-count">{{state.memories.length}} 段共同回忆 · {{memoryPhotoCount}} 张照片</view>
+        </view>
+        <image class="memory-arrow" src="/assets/icons/arrow-right.svg" mode="aspectFit"></image>
+      </button>
+
+      <view wx:if="{{state.space.status !== 'active'}}" class="pending-space-panel">
+        <view class="pending-space-title">还差 TA 的回应</view>
+        <view class="hint">邀请被接受后，这片树冠就会正式亮起来。</view>
+        <button class="btn-primary pending-invite-button" data-url="/pages/space/invite" bindtap="go">查看邀请</button>
       </view>
 
       <block wx:else>
-        <view class="entry-section">
-          <button class="entry-main" data-url="/pages/task/create" bindtap="go">
-            <view class="entry-plus">+</view>
-            <view class="entry-copy">
-              <view class="entry-title">发起一个约定</view>
-              <view class="entry-desc">把想做的事，好好约定下来</view>
-            </view>
-          </button>
-        </view>
+        <button class="btn-primary create-task-entry" data-url="/pages/task/create" bindtap="go">发起一个约定</button>
 
-        <view wx:if="{{taskCards.length > 0}}" class="card task-card">
-          <view class="section-title task-title">我们的约定</view>
-          <view
-            wx:for="{{taskCards}}"
-            wx:key="_id"
-            class="task-swipe"
-          >
-            <view class="list-item task-row envelope-row" data-id="{{item._id}}" bindtap="openTaskDetail">
-              <view class="envelope-lines"></view>
-              <view class="task-info envelope-info">
-                <view class="task-title-row">
-                  <view class="task-name">{{item.title}}</view>
-                  <view class="task-status envelope-stamp">{{item.statusText}}</view>
-                </view>
-                <view wx:if="{{item.desc}}" class="task-desc">{{item.desc}}</view>
-                <view class="hint task-time">{{item.appointmentText || '未约定'}}</view>
-                <view wx:if="{{item.locationTitle}}" class="hint location-link task-location" data-index="{{index}}" catchtap="openTaskLocation">{{item.locationTitle}}</view>
+        <view wx:if="{{waitingTaskCards.length}}" class="task-section">
+          <view class="section-title">等待回应</view>
+          <view class="task-list">
+            <view wx:for="{{waitingTaskCards}}" wx:key="_id" class="task-card" data-id="{{item._id}}" bindtap="openTaskDetail">
+              <view class="task-info">
+                <view class="task-name">{{item.title}}</view>
+                <view class="task-meta">{{item.metaText}}</view>
+                <view class="task-status waiting-status">{{item.statusText}}</view>
               </view>
-              <image
-                wx:if="{{item.coverImageUrl}}"
-                class="task-cover postage-cover"
-                src="{{item.coverImageUrl}}"
-                mode="aspectFill"
-                data-index="{{index}}"
-                catchtap="previewTaskImage"
-              ></image>
+              <image class="task-arrow" src="/assets/icons/arrow-right.svg" mode="aspectFit"></image>
             </view>
           </view>
+        </view>
+
+        <view wx:if="{{activeTaskCards.length}}" class="task-section">
+          <view class="section-title">正在赴约</view>
+          <view class="task-list">
+            <view wx:for="{{activeTaskCards}}" wx:key="_id" class="task-card" data-id="{{item._id}}" bindtap="openTaskDetail">
+              <view class="task-info">
+                <view class="task-name">{{item.title}}</view>
+                <view class="task-meta">{{item.metaText}}</view>
+                <view class="task-status active-status">{{item.statusText}}</view>
+                <view wx:if="{{item.locationTitle}}" class="task-location-hit" data-id="{{item._id}}" catchtap="openTaskLocation">{{item.locationTitle}}</view>
+              </view>
+              <image class="task-avatar" src="/assets/icons/task-avatar.svg" mode="aspectFit"></image>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{!waitingTaskCards.length && !activeTaskCards.length}}" class="task-empty">
+          <view class="task-empty-title">树冠里还很安静</view>
+          <view class="hint">从一个想一起完成的小约定开始吧。</view>
         </view>
       </block>
     </block>

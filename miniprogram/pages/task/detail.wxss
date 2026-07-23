@@ -278,7 +278,7 @@
   flex: 0 0 68rpx;
   width: 68rpx;
   height: 68rpx;
-  border-radius: 12rpx;
+  border-radius: 999rpx;
   background: #d8ded8;
   color: #466052;
   font-size: 24rpx;
@@ -326,15 +326,15 @@
 .reply-image-grid,
 .reply-draft-grid {
   display: grid;
-  grid-template-columns: repeat(3, 144rpx);
+  grid-template-columns: repeat(3, 180rpx);
   gap: 10rpx;
   margin-top: 10rpx;
 }
 
 .reply-image,
 .reply-draft-image {
-  width: 144rpx;
-  height: 144rpx;
+  width: 180rpx;
+  height: 180rpx;
   border-radius: 12rpx;
   background: #d8d8d8;
 }

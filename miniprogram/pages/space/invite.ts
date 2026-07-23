@@ -2,6 +2,7 @@
 
 const api = require("../../utils/api.js");
 const config = require("../../config.js");
+const route = require("../../utils/route.js");
 const sync = require("../../utils/sync.js");
 
 const SPACE_STATUS = {
@@ -14,7 +15,7 @@ Page({
     space: null,
     invite: null,
     inviteToken: "",
-    inviteState: null
+    isAccepting: false
   },
 
   syncClient: null,
@@ -22,7 +23,7 @@ Page({
 
   onLoad(options: AnyRecord) {
     const rawInviteToken = options && (options.inviteToken || options.token || options.scene);
-    const inviteToken = rawInviteToken ? decodeURIComponent(rawInviteToken) : "";
+    const inviteToken = route.decodeRouteValue(rawInviteToken);
     this.setData({ inviteToken });
 
     if (wx.showShareMenu) {
@@ -48,7 +49,7 @@ Page({
       }
 
       this.stopInviteClient();
-      this.setData({ space: null, invite: null, inviteState: null });
+      this.setData({ space: null, invite: null });
     } catch (error) {
       wx.showToast({ title: error.message || "加载失败", icon: "none" });
     }
@@ -62,13 +63,7 @@ Page({
     if (isCurrentSpaceInvite) {
       this.setData({
         space,
-        invite: null,
-        inviteState: {
-          spaceId: space._id,
-          name: space.name,
-          inviteToken: space.inviteToken,
-          status: space.status
-        }
+        invite: null
       });
 
       if (space.status === SPACE_STATUS.ACTIVE) {
@@ -83,7 +78,7 @@ Page({
     }
 
     const invite = await api.getInvite(this.data.inviteToken);
-    this.setData({ space: null, invite, inviteState: null });
+    this.setData({ space: null, invite });
     this.stopInviteClient();
   },
 
@@ -141,12 +136,17 @@ Page({
   },
 
   async acceptInvite() {
+    if (this.data.isAccepting) return;
+
     try {
+      this.setData({ isAccepting: true });
       await api.acceptInvite(this.data.inviteToken);
       wx.showToast({ title: "已加入", icon: "success" });
       setTimeout(() => wx.redirectTo({ url: "/pages/index/index" }), 400);
     } catch (error) {
       wx.showToast({ title: error.message || "操作失败", icon: "none" });
+    } finally {
+      this.setData({ isAccepting: false });
     }
   },
 
@@ -161,5 +161,9 @@ Page({
 
   goCreate() {
     wx.redirectTo({ url: "/pages/space/create" });
+  },
+
+  goHome() {
+    wx.redirectTo({ url: "/pages/index/index" });
   }
 });

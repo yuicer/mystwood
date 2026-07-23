@@ -1,53 +1,68 @@
-<view class="page-wrap">
-  <view class="card">
-    <view class="kind-heading">这次想做一个怎样的约定？</view>
-    <view class="kind-options">
-      <button
-        wx:for="{{kindOptions}}"
-        wx:key="value"
-        class="kind-option {{selectedKind === item.value ? 'kind-option-selected' : ''}}"
-        data-kind="{{item.value}}"
-        bindtap="selectKind"
-      >
-        <view class="kind-title">{{item.title}}</view>
-        <view class="kind-desc">{{item.desc}}</view>
-      </button>
-    </view>
+<view class="page-wrap task-create-page">
+  <view class="page-title">发起一个约定</view>
+  <view class="page-subtitle">选择由谁完成，再写下你们的安排。</view>
 
-    <input class="field title-field" placeholder="约定名称" value="{{form.title}}" maxlength="40" bindinput="onTitleInput" />
-    <textarea class="field description-field" placeholder="详细描述（选填）" value="{{form.desc}}" maxlength="240" show-confirm-bar="{{false}}" bindinput="onDescInput" />
+  <view class="kind-options">
+    <button
+      wx:for="{{kindOptions}}"
+      wx:key="value"
+      class="kind-option {{selectedKind === item.value ? 'kind-option-selected' : ''}}"
+      data-kind="{{item.value}}"
+      bindtap="selectKind"
+    >{{item.title}}</button>
+  </view>
 
-    <view class="meta-stack">
-      <view class="meta-field location-picker {{selectedLocationName ? 'location-picked' : ''}}" bindtap="chooseLocation">
-        <view class="location-icon"></view>
+  <view class="form-group">
+    <view class="field-label">约定名称</view>
+    <input class="field title-field" placeholder="例如：周五去看插画展" value="{{form.title}}" maxlength="40" bindinput="onTitleInput" />
+  </view>
+
+  <view class="form-group">
+    <view class="field-label">想对 TA 说</view>
+    <textarea class="field description-field" placeholder="写下这份约定的安排（选填）" value="{{form.desc}}" maxlength="240" show-confirm-bar="{{false}}" bindinput="onDescInput" />
+  </view>
+
+  <view class="meta-grid">
+    <view class="meta-field location-picker {{selectedLocationName ? 'meta-picked' : ''}}" bindtap="chooseLocation">
+      <image class="meta-icon" src="/assets/icons/location.svg" mode="aspectFit"></image>
+      <view class="meta-copy">
+        <view class="meta-label">地点</view>
         <view class="meta-text">{{selectedLocationName || "选择地点"}}</view>
       </view>
-      <picker class="meta-picker" mode="multiSelector" range="{{appointmentRange}}" value="{{appointmentIndex}}" bindchange="onAppointmentPick">
-        <view class="meta-field appointment-picker {{appointmentText ? 'appointment-picked' : ''}}">
-          <view class="clock-icon"></view>
-          <view class="meta-text">{{appointmentText || "目标时间"}}</view>
-        </view>
-      </picker>
     </view>
 
+    <picker class="meta-picker" mode="multiSelector" range="{{appointmentRange}}" value="{{appointmentIndex}}" bindchange="onAppointmentPick">
+      <view class="meta-field appointment-picker {{appointmentText ? 'meta-picked' : ''}}">
+        <image class="meta-icon" src="/assets/icons/calendar-clock.svg" mode="aspectFit"></image>
+        <view class="meta-copy">
+          <view class="meta-label">时间</view>
+          <view class="meta-text">{{appointmentText || "选择时间"}}</view>
+        </view>
+      </view>
+    </picker>
+  </view>
+
+  <view class="image-section">
+    <view class="image-heading">
+      <view class="field-label">添加图片</view>
+      <view class="image-limit">最多 {{maxImageCount}} 张</view>
+    </view>
     <view class="image-grid">
-      <view
-        wx:for="{{imageItems}}"
-        wx:key="fileID"
-        class="image-thumb"
-        data-index="{{index}}"
-        bindtap="previewImage"
-      >
+      <view wx:for="{{imageItems}}" wx:key="fileID" class="image-thumb" data-index="{{index}}" bindtap="previewImage">
         <image class="image-preview" src="{{item.previewUrl}}" mode="aspectFill"></image>
         <view class="image-remove" data-index="{{index}}" catchtap="removeImage"></view>
       </view>
 
       <view wx:if="{{imageItems.length < maxImageCount}}" class="image-upload {{isUploadingImage ? 'image-upload-disabled' : ''}}" bindtap="chooseImage">
-        <view class="upload-plus"></view>
-        <view class="upload-text">{{isUploadingImage ? "上传中" : "上传图片"}}</view>
+        <view class="upload-text">{{isUploadingImage ? "上传中" : "添加"}}</view>
       </view>
     </view>
-
-    <button class="btn-primary create-button" bindtap="create">发出约定</button>
   </view>
+
+  <button
+    class="btn-primary create-button"
+    loading="{{isSubmitting}}"
+    disabled="{{isSubmitting || isUploadingImage}}"
+    bindtap="create"
+  >发起约定</button>
 </view>

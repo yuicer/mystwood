@@ -78,7 +78,7 @@ function getErrorText(error: Error | AnyRecord | null | undefined) {
 
 function isRetryableSyncError(error: Error | AnyRecord | null | undefined) {
   const errorText = getErrorText(error);
-  return /504003|timeout|timed out|network|request:fail|callFunction:fail|ECONN|ETIMEDOUT|超时/i.test(errorText);
+  return /504003|timeout|timed out|network|request:fail|ECONN|ETIMEDOUT|超时/i.test(errorText);
 }
 
 function isTerminalSyncError(error: Error | AnyRecord | null | undefined) {

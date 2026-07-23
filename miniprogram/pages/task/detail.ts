@@ -149,7 +149,9 @@ Page({
 
   async loadTask() {
     if (!this.data.id) {
+      this.setData({ isLoading: false });
       wx.showToast({ title: "约定不存在", icon: "none" });
+      goBackHome();
       return;
     }
 

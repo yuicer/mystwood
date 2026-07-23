@@ -1,6 +1,7 @@
 "use strict";
 
 const api = require("../../utils/api.js");
+const route = require("../../utils/route.js");
 
 Page({
   data: {
@@ -8,8 +9,8 @@ Page({
   },
 
   onLoad(options: AnyRecord) {
-    this.taskId = options && options.id ? decodeURIComponent(options.id) : "";
-    this.shareToken = options && options.shareToken ? decodeURIComponent(options.shareToken) : "";
+    this.taskId = route.decodeRouteValue(options && options.id);
+    this.shareToken = route.decodeRouteValue(options && options.shareToken);
   },
 
   onShow() {

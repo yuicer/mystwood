@@ -1,7 +1,20 @@
-<view class="page-wrap">
-  <view class="card">
-    <view class="section-title">创建你们的空间</view>
-    <input class="field" placeholder="例如：我们的小宇宙" value="{{name}}" bindinput="onNameInput" />
-    <button class="btn-primary btn-stack" bindtap="submit">创建并去邀请</button>
+<view class="page-wrap space-create-page">
+  <view class="create-intro">
+    <view class="page-title">给你们的树冠起个名字</view>
+    <view class="page-subtitle">之后的约定与回忆，都会留在这里。</view>
   </view>
+
+  <view class="space-name-form">
+    <image class="treehouse-mark" src="/assets/icons/treehouse-mark.svg" mode="aspectFit"></image>
+    <view class="field-label">空间名称</view>
+    <input class="field space-name-input" maxlength="30" placeholder="例如：晨雾花园" value="{{name}}" bindinput="onNameInput" />
+    <view class="hint create-hint">创建后，将进入微信邀请页面。</view>
+  </view>
+
+  <button
+    class="btn-primary create-space-button"
+    loading="{{isSubmitting}}"
+    disabled="{{isSubmitting}}"
+    bindtap="submit"
+  >创建空间</button>
 </view>

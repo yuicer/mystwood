@@ -127,9 +127,7 @@ function getAppointmentData(timestamp: number | string | null | undefined) {
     appointmentDateLabels: dateLabels,
     appointmentDateValues: dateValues,
     appointmentIndex: selection ? selection.index : config.defaultIndex,
-    appointmentText: selection ? selection.text : "",
-    appointmentDate: selection ? selection.date : "",
-    appointmentTime: selection ? selection.time : DEFAULT_APPOINTMENT_TIME
+    appointmentText: selection ? selection.text : ""
   };
 }
 
